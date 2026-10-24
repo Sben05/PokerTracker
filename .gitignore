@@ -1,0 +1,8 @@
+pokerbank-data.json
+*backup*.json
+*.csv
+*.xlsx
+.env*
+*.pem
+*.key
+node_modules/
