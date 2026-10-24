@@ -92,3 +92,5 @@ body{background:#071510;-webkit-font-smoothing:antialiased}
 @media(max-width:700px){.app{display:block}.main{padding:26px 16px 120px}.mobiletop{padding:16px 18px}.title{font-size:34px}.panel{padding:19px}.metric{padding:17px}.metricnum{font-size:27px}.cards{gap:10px}.bigprompt{padding:23px}.bigprompt strong{font-size:25px}.bottomnav button{min-height:44px}.bottomnav{box-shadow:0 -8px 30px #0004}.modal{border-radius:14px 14px 0 0}.toast{bottom:90px;left:16px;right:16px;max-width:none}.twofields{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:380px){.twofields{grid-template-columns:1fr}.metricnum{font-size:23px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition:none!important;animation:none!important}}
+
+.sync-status{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin:0 0 22px;padding:12px 15px;border:1px solid #87976a38;border-radius:7px;color:var(--muted);font-size:12px;background:#112a20}.sync-paused{border-color:#bd985c;color:#f7d193}

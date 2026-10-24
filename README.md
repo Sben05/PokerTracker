@@ -12,7 +12,7 @@ A finished, dependency-free static web app for informal poker-night accounting. 
 - Supports documented equal splitting of a discrepancy (if the group agreed) or explicitly assigning the difference to the bank.
 - Preserves voided transactions and supports session notes.
 - Exports a complete JSON backup and Excel-compatible per-session CSV files.
-- Can sync automatically to a **separate private GitHub repository** while the browser session is connected, writing both `pokerbank-data.json` (authoritative ledger) and `pokerbank-ledger.csv` (Excel-compatible transaction history).
+- Automatically saves to a private JSONBin record after one-time connection on each trusted device; JSON and CSV downloads remain available.
 
 ## Publish on GitHub Pages
 
@@ -22,16 +22,24 @@ Keep Pages configured to **Deploy from a branch**, **main**, **/(root)**. Source
 
 *GitHub Pages is a static website host, not a bank or a backend. Its Pages sites are typically public. The website must never contain your private ledger or API tokens.*
 
-## Optional private GitHub ledger backup and sync
+## Private online JSON (JSONBin)
 
-1. Create a **separate private** GitHub repository named, for example, `pokerbank-private-data`. Do not enable Pages for this repository.
-2. Generate a **fine-grained personal access token**, restricted to this private repo only, with **Contents: Read and write**. Do not email or paste the token to someone else, and never commit it to source control.
-3. Open the PokerBank website, navigate to **Settings**, and enter your GitHub username, the private repo name, and the token. The app checks that the repository is private before writing anything.
-4. For an empty private repo, confirm that PokerBank may create `pokerbank-data.json`. If a ledger already exists, confirm before replacing local records with it.
-5. After connection, local changes sync automatically after a short delay, updating both the JSON source of truth and the CSV spreadsheet mirror. The UI reports sync status. A stale remote SHA or failed save pauses syncing to avoid silent overwrites.
-6. **Refresh/reopen requires connecting again.** The token is deliberately memory-only; local browser data and owner/repo preferences are stored, but the token is never saved.
+The active app uses one private JSONBin record, with no PokerBank sign-in. The site stays on GitHub Pages. Financial records and API keys never belong in this public repository.
 
-**Important limitations:** This is single-bank-operator software, not a real-time shared multi-editor database. Other devices can load the private ledger after authenticating, but overlapping edits require manual coordination. Export JSON backups after each game. Browser local storage is not encrypted, can be cleared, and is specific to the device/browser.
+1. Create a **PRIVATE** JSONBin record containing `{"pokerbank":"uninitialized"}`. Copy the 24-character Bin ID.
+2. Create an **access key** with **Bins Read** and **Bins Update** permission, scoped to the bin where supported. Do not use a master key. Revoke/rotate any key shared in a chat or elsewhere.
+3. On the device containing your current ledger, open **Settings → Online JSON**. Enter the Bin ID and the new access key directly into the app.
+4. Optionally select **Remember on this device** on trusted devices. This stores the key **unencrypted in browser local storage**. Otherwise the key is memory-only and must be reentered after refresh. **Disconnect & forget** removes the saved key; local ledger data remains.
+5. Connect and confirm initializing the empty private record. The entire version-1 PokerBank ledger is saved as plain JSON. Wait for **Online JSON saved · up to date**.
+6. On each other device, enter the same Bin ID and access key, connect, and confirm loading the online ledger. There are no credentials bundled in the website.
+
+Local changes save immediately in the browser and debounce to the online JSON after about 1.7 seconds. Reopening with Remember enabled reconnects and loads newer remote records automatically if local data matches the last synchronized checkpoint. Unsaved local changes cause a pause instead of automatic replacement: export a backup before choosing **Load online**.
+
+**Use one device at a time.** Before switching, wait for online save confirmation, then reopen or **Load online** on the next device. The app checks the current remote contents before writing and pauses when it detects a change. JSONBin's documented update API does not provide atomic compare-and-swap, so simultaneous writes can still race. There is no continuous remote polling. Network errors, revoked keys, public bins, and exhausted quotas pause online saving while preserving local data.
+
+The free allowance is finite (10,000 requests, credited once) and records are limited to 100 KB. Each save uses a read plus an update. Export JSON backups regularly. JSONBin stores JSON only; CSV remains available through the app's download buttons. See https://jsonbin.io/pricing and https://jsonbin.io/api-reference/bins/update for provider limits.
+
+The previous optional private GitHub JSON/CSV sync module and its tests are preserved in `github-sync.mjs`; the active UI now uses `jsonbin-sync.mjs` instead. It never connects to both providers simultaneously.
 
 ## Local development
 
@@ -63,8 +71,8 @@ node --test tests/*.test.mjs
 
 ## Data privacy
 
-The site has no ads, analytics, third-party scripts, or external database. It only contacts GitHub's API after the operator voluntarily enters private-repo credentials. Do not use a public repository for financial records. `pokerbank-data.json` and `pokerbank-ledger.csv` must remain in the private repository. The CSV is Excel-compatible, not a native `.xlsx` workbook.
+The site has no ads, analytics, third-party scripts, or external database. The active app only contacts JSONBin after the operator enters a Bin ID and access key, or opts in to remembering that connection. Do not use a public repository for financial records. `pokerbank-data.json` and `pokerbank-ledger.csv` must remain in the private repository. The CSV is Excel-compatible, not a native `.xlsx` workbook.
 
 ## Royal deployment verification
 
-The automated sync tests use synthetic records only. They verify JSON/CSV writes, public-repository refusal, visibility rechecking before saves, and conflict handling. Live authenticated private writes require the operator to connect their own private repository in Settings; no credentials ship with this site. JSON and CSV are separate GitHub commits, so a CSV failure can leave JSON newer; reconnect to reload the authoritative JSON and sync again. Never change the data repository to public: the app checks visibility before saving, but changing visibility exposes existing history immediately.
+The automated sync tests use synthetic records only. They verify JSON/CSV writes, public-repository refusal, visibility rechecking before saves, and conflict handling. Live authenticated private JSONBin writes require the operator to connect their own private bin in Settings; no credentials ship with this site. The preserved optional GitHub module writes JSON and CSV in separate commits; the active JSONBin integration saves a single JSON record. Never change the data repository to public: the app checks visibility before saving, but changing visibility exposes existing history immediately.
