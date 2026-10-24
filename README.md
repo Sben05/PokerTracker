@@ -2,9 +2,14 @@
 
 A finished, dependency-free static web app for informal poker-night accounting. Built for iPhone and desktop browsers. Runs with any basic static web server, including GitHub Pages.
 
+## Live rebuilt app
+
+The new database-backed PokerBank is live at https://pokerbank-house-ledger.blithehake22.chatgpt.site. Anyone can view; editing is protected by a server-side passcode. Source is in [`live/`](live/README.md). Every action saves to D1, offline changes retry automatically, and open devices refresh every two seconds. The original static app below is retained for migration and historical reference.
+
 ## What it does
 
 - Creates a permanent history of poker sessions, with a reusable player directory.
+- Decentralized games record chips on credit and settle net results at the end. Buy-ins and new players require no payment method; choose one when recording a settlement. Existing received buy-ins and payments keep their accounting.
 - Records buy-ins and rebuys, cash/coins/Zelle/Venmo/other payment methods, and whether money has actually arrived.
 - Records chip cash-outs **separately from actual payouts**, including zero-dollar bust-outs.
 - Calculates player profit/loss in exact integer cents, reconciles chips, and shows outstanding obligations.
@@ -27,8 +32,8 @@ Keep Pages configured to **Deploy from a branch**, **main**, **/(root)**. Source
 1. Create a **separate private** GitHub repository named, for example, `pokerbank-private-data`. Do not enable Pages for this repository.
 2. Generate a **fine-grained personal access token**, restricted to this private repo only, with **Contents: Read and write**. Do not email or paste the token to someone else, and never commit it to source control.
 3. Open the PokerBank website, navigate to **Settings**, and enter your GitHub username, the private repo name, and the token. The app checks that the repository is private before writing anything.
-4. For an empty private repo, confirm that PokerBank may create `pokerbank-data.json`. If a ledger already exists, confirm before replacing local records with it.
-5. After connection, local changes sync automatically after a short delay, updating both the JSON source of truth and the CSV spreadsheet mirror. The UI reports sync status. A stale remote SHA or failed save pauses syncing to avoid silent overwrites.
+4. For an empty private repo, confirm that PokerBank may create `pokerbank-data.json`. If a ledger already exists, choose whether to upload this device’s ledger (the default) or load the remote ledger. Confirm before replacing either copy. Upload local records to back up a game entered while disconnected; load remote records when setting up another device. This replaces the selected destination, rather than merging ledgers.
+5. After connection, local changes sync automatically after a short delay, updating both the JSON source of truth and the CSV spreadsheet mirror. Every page reports whether changes are local only, queued, saved remotely, or paused. A stale remote SHA or failed save pauses syncing to avoid silent overwrites.
 6. **Refresh/reopen requires connecting again.** The token is deliberately memory-only; local browser data and owner/repo preferences are stored, but the token is never saved.
 
 **Important limitations:** This is single-bank-operator software, not a real-time shared multi-editor database. Other devices can load the private ledger after authenticating, but overlapping edits require manual coordination. Export JSON backups after each game. Browser local storage is not encrypted, can be cleared, and is specific to the device/browser.
@@ -38,7 +43,7 @@ Keep Pages configured to **Deploy from a branch**, **main**, **/(root)**. Source
 To serve the files without GitHub Pages:
 
 ```bash
-cd pokerbank_release
+cd PokerTracker
 python3 -m http.server 8000
 ```
 

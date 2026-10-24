@@ -1,0 +1,4 @@
+const allowed=new Set(['https://sben05.github.io','https://pokerbank-house-ledger.blithehake22.chatgpt.site']);
+export function validOrigin(request:Request){const origin=request.headers.get('origin');return !!origin&&(origin===new URL(request.url).origin||allowed.has(origin));}
+export function cors(request:Request):Record<string,string>{const origin=request.headers.get('origin');return origin&&(origin===new URL(request.url).origin||allowed.has(origin))?{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Methods':'GET, POST, DELETE, OPTIONS','Access-Control-Allow-Headers':'Content-Type, Authorization','Access-Control-Max-Age':'86400','Vary':'Origin'}:{};}
+export function preflight(request:Request){return new Response(null,{status:validOrigin(request)?204:403,headers:cors(request)});}
