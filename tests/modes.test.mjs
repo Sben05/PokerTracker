@@ -1,0 +1,24 @@
+import assert from 'node:assert/strict';
+import {makeSession,createPlayer,makeStore,allocateVariance,stats,balances,playerStats,simplify,splitVariance,BANK_ID} from '../engine.mjs';
+const e=(type,playerId,amount,status)=>({id:crypto.randomUUID(),type,playerId,amount,status});
+const s=makeSession('Club night',{mode:'decentralized'});
+assert.equal(s.mode,'decentralized');assert.equal(s.bankerId,null);
+const a='alex',b='blair';
+s.entries.push(e('buyin',a,2000,'pending'),e('buyin',b,2000,'received'),e('cashout',a,0),e('cashout',b,4100));
+s.status='closed';
+assert.equal(stats(s).unresolved,-100);
+// Without a paid central banker, one player owes the other directly and table cash is separate.
+assert.equal(balances(s).get(a),-2000);assert.equal(balances(s).get(BANK_ID),-2100);
+const first=allocateVariance(s,a,60,'Agreed cash shortage');assert.equal(first.amount,-60);assert.equal(stats(s).unresolved,-40);
+assert.throws(()=>allocateVariance(s,b,41),/no more than/);
+const second=allocateVariance(s,b,40);assert.equal(stats(s).unresolved,0);
+assert.equal(balances(s).get(BANK_ID),-2000);
+assert.equal(balances(s).get(a),-2060);
+assert.equal(balances(s).get(b),4060);
+assert.equal(simplify(s).reduce((sum,v)=>sum+v.amount,0),4060);
+second.voidedAt=new Date().toISOString();assert.equal(stats(s).unresolved,-40);
+splitVariance(s,[a,b]);assert.equal(stats(s).unresolved,0);
+assert.equal(playerStats(s,b).adjustment,-20);
+const p=makeSession('Other',{mode:'centralized',bankerId:'dealer'});
+assert.equal(p.bankerId,'dealer');assert.equal(p.mode,'centralized');
+console.log('✓ individual shortfall shares, partial allocation, undo, decentral table and central banker');
