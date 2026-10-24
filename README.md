@@ -16,11 +16,9 @@ A finished, dependency-free static web app for informal poker-night accounting. 
 
 ## Publish on GitHub Pages
 
-1. Download and unzip `PokerBank-GitHub-Pages.zip`.
-2. Create a **public** GitHub repository named `pokerbank` for the website **code only**.
-3. Upload the unzipped files directly to the repository's root, not a nested folder. Include `index.html`, `engine.mjs`, `app.mjs`, `github-sync.mjs`, `style.css`, `favicon.svg`, `manifest.webmanifest`, and `.nojekyll`.
-4. Go to the code repository's **Settings → Pages → Build and deployment**. Choose **Deploy from a branch**, with branch **main** and folder **/(root)**.
-5. Open `https://YOUR_USERNAME.github.io/pokerbank/` after publishing.
+The Royal release is extracted directly into the root of `Sben05/PokerTracker`, preserving all source modules and tests. GitHub Pages publishes `main` → `/(root)` at https://sben05.github.io/PokerTracker/.
+
+Keep Pages configured to **Deploy from a branch**, **main**, **/(root)**. Source and tests are public; financial records belong only on the operator's device or in a separate private data repository.
 
 *GitHub Pages is a static website host, not a bank or a backend. Its Pages sites are typically public. The website must never contain your private ledger or API tokens.*
 
@@ -66,3 +64,7 @@ node --test tests/*.test.mjs
 ## Data privacy
 
 The site has no ads, analytics, third-party scripts, or external database. It only contacts GitHub's API after the operator voluntarily enters private-repo credentials. Do not use a public repository for financial records. `pokerbank-data.json` and `pokerbank-ledger.csv` must remain in the private repository. The CSV is Excel-compatible, not a native `.xlsx` workbook.
+
+## Royal deployment verification
+
+The automated sync tests use synthetic records only. They verify JSON/CSV writes, public-repository refusal, visibility rechecking before saves, and conflict handling. Live authenticated private writes require the operator to connect their own private repository in Settings; no credentials ship with this site. JSON and CSV are separate GitHub commits, so a CSV failure can leave JSON newer; reconnect to reload the authoritative JSON and sync again. Never change the data repository to public: the app checks visibility before saving, but changing visibility exposes existing history immediately.
