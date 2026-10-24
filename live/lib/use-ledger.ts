@@ -1,5 +1,5 @@
 'use client';
-import {apiFetch} from './network';
+import {apiFetch,subscribeLedger} from './network';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {makeStore,uid} from './engine.mjs';
 import {applyCommand} from './commands.mjs';
@@ -46,11 +46,11 @@ export function useLedger(){
   alive.current=true;
   try{const cached=JSON.parse(localStorage.getItem('pokerbank.live.cache')||'null');if(cached){base.current=cached.ledger;setUpdatedAt(cached.updatedAt);}refresh();}catch{setError('Local storage is unavailable. Keep this tab open until your changes are saved.');}
   const poll=async()=>{if(document.hidden||busy.current)return;try{const response=await apiFetch('/api/ledger',{cache:'no-store'});if(!response.ok)throw Error();const snapshot=await response.json();if(alive.current){accept(snapshot);setOnline(true);setReady(true);void flush();}}catch{if(alive.current){setOnline(false);setReady(true);}}};
-  void poll();const timer=setInterval(()=>{void poll();void flush();},2000);
+  void poll();const stopSubscription=subscribeLedger((snapshot,fromCache)=>{if(alive.current){accept(snapshot);setOnline(!fromCache);setReady(true);if(!fromCache)void flush();}},()=>{if(alive.current){setOnline(false);setReady(true);}});const timer=setInterval(()=>{void flush();},2000);
   const onStorage=(event:StorageEvent)=>{if(event.key?.startsWith(PREFIX)){refresh();void flush();}};
   const reconnect=()=>{void poll();void flush();};
-  window.addEventListener('storage',onStorage);window.addEventListener('online',reconnect);document.addEventListener('visibilitychange',reconnect);
-  return()=>{alive.current=false;clearInterval(timer);window.removeEventListener('storage',onStorage);window.removeEventListener('online',reconnect);document.removeEventListener('visibilitychange',reconnect);};
+  const disconnect=()=>setOnline(false);window.addEventListener('offline',disconnect);window.addEventListener('storage',onStorage);window.addEventListener('online',reconnect);document.addEventListener('visibilitychange',reconnect);
+  return()=>{alive.current=false;stopSubscription();clearInterval(timer);window.removeEventListener('offline',disconnect);window.removeEventListener('storage',onStorage);window.removeEventListener('online',reconnect);document.removeEventListener('visibilitychange',reconnect);};
  },[accept,flush,refresh]);
  return {data,ready,online,pending,saving,updatedAt,error,clearError:()=>setError(''),dispatch,retry:flush};
 }

@@ -1,9 +1,9 @@
 {
-  "name": "site-creator-vinext-starter",
+  "name": "pokerbank",
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=24.12.0"
   },
   "scripts": {
     "install:ci": "node scripts/install-ci.mjs",
@@ -11,7 +11,8 @@
     "build": "node scripts/run-framework.mjs build",
     "start": "node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js dev --config dist/server/wrangler.json --local --persist-to .wrangler/state --ip 127.0.0.1 --inspector-port 0",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "build:firebase": "vite build --config vite.web.config.ts && node -e \"require('fs').copyFileSync('public/favicon.svg','web-dist/favicon.svg')\""
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -23,6 +24,7 @@
     "date-fns": "^4.4.0",
     "drizzle-orm": "0.45.2",
     "embla-carousel-react": "^8.6.0",
+    "firebase": "^13.1.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^1.31.0",
     "next": "16.3.4",

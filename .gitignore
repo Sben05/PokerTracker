@@ -6,3 +6,9 @@ pokerbank-data.json
 *.pem
 *.key
 node_modules/
+
+# Firebase runtime state and CLI logs
+.firebase/
+firebase-debug*.log
+firestore-debug*.log
+ui-debug*.log

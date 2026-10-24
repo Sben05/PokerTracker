@@ -1,0 +1,18 @@
+rules_version = '2';
+service cloud.firestore {
+ match /databases/{database}/documents {
+  function editor() { return request.auth != null && request.auth.uid == 'Dm71FGcIqWOcEgnZSbGBYwmhBrk2'; }
+  function validLedger() { return request.resource.data.keys().hasOnly(['ledger','revision','updatedAt','lastCommandId']) && request.resource.data.ledger is map && request.resource.data.ledger.version == 1 && request.resource.data.ledger.players is list && request.resource.data.ledger.sessions is list && request.resource.data.revision is int && request.resource.data.updatedAt is string && request.resource.data.lastCommandId is string; }
+  match /ledgers/house {
+   allow read: if true;
+   allow create: if editor() && validLedger() && request.resource.data.revision == 1 && existsAfter(/databases/$(database)/documents/operations/$(request.resource.data.lastCommandId));
+   allow update: if editor() && validLedger() && request.resource.data.revision == resource.data.revision + 1 && !exists(/databases/$(database)/documents/operations/$(request.resource.data.lastCommandId)) && existsAfter(/databases/$(database)/documents/operations/$(request.resource.data.lastCommandId));
+   allow delete: if false;
+  }
+  match /operations/{operationId} {
+   allow read: if editor();
+   allow create: if editor() && request.resource.data.keys().hasOnly(['type','createdAt','revision']) && request.resource.data.type is string && request.resource.data.createdAt is string && request.resource.data.revision is int && getAfter(/databases/$(database)/documents/ledgers/house).data.lastCommandId == operationId && getAfter(/databases/$(database)/documents/ledgers/house).data.revision == request.resource.data.revision;
+   allow update, delete: if false;
+  }
+ }
+}
