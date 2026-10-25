@@ -48,3 +48,16 @@ test('plain HTML emails escape content and link the details page',()=>{
  const html=emailHtml('x','Hi <script>,\n\nYou need to send:\n  $10.00 to <b>Alex</b>\n\nDetails: https://pokertracker-cfb7b.web.app/games/abc/settlements');
  assert.doesNotMatch(html,/<script>|<b>Alex/);assert.match(html,/href="https:\/\/pokertracker-cfb7b\.web\.app\/games\/abc\/settlements"/);
 });
+test('players who still owe from a finished game cannot buy in until it is marked paid',()=>{
+ let {after,a,b,s}=closed();
+ const next=change(after,'create-session',{title:'Saturday'});const s2=next.command.id;let d=next.after;
+ assert.throws(()=>change(d,'buyin',{sessionId:s2,playerId:b,amount:'20'}),/Blair still owes \$10\.00 from Friday/);
+ d=change(d,'buyin',{sessionId:s2,playerId:a,amount:'20'}).after;
+ d=change(d,'transfer',{sessionId:s,from:b,to:a,amount:'10',method:'Other',paid:true}).after;
+ assert.doesNotThrow(()=>change(d,'buyin',{sessionId:s2,playerId:b,amount:'20'}));
+});
+test('manual reminders email only the chosen debtors and link the all-time settlements page',()=>{
+ const {after,a,b}=closed();
+ const all=change(after,'send-reminders',{});assert.deepEqual(all.events.map(e=>e.playerId),[b]);assert.match(all.events[0].body,/\/settlements\n/);
+ assert.deepEqual(change(after,'send-reminders',{playerIds:[a]}).events,[]);
+});

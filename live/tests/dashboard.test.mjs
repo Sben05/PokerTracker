@@ -57,3 +57,7 @@ test('player profiles chart running totals in game order and track streaks',()=>
  assert.deepEqual(b.series,[-1500,-500]);assert.equal(b.streak,1);assert.equal(b.bought,4000);
  assert.equal(c.games,0);assert.deepEqual(c.series,[]);
 });
+test('the all-time settlements page has its own address',()=>{
+ assert.deepEqual(readRoute('/settlements'),{page:'owed',sessionId:''});assert.equal(routePath('owed'),'/settlements');
+ assert.equal(readRoute(routePath('settlements','g1')).page,'settlements');
+});

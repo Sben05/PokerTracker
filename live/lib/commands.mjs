@@ -1,5 +1,6 @@
 import {normalizePlayerEmail} from './notifications.mjs';
-import {makeStore, makeSession, createPlayer, cents, METHODS, BANK_ID, participants, playerStats, allocateVariance, splitVariance, validateImported} from './engine.mjs';
+import {makeStore, makeSession, createPlayer, cents, money, METHODS, BANK_ID, participants, playerStats, allocateVariance, splitVariance, validateImported} from './engine.mjs';
+import {outstandingDebts} from './analytics.mjs';
 export class CommandError extends Error {}
 const fail=message=>{throw new CommandError(message)};
 const text=(v,max=150)=>typeof v==='string'?v.trim().slice(0,max):'';
@@ -29,7 +30,9 @@ export function applyCommand(original,command){
   row.name=name;break;
  }
  case 'buyin':{
-  const s=session();open(s);player(p.playerId);
+  const s=session();open(s);const who=player(p.playerId);
+  const debts=outstandingDebts(data).get(p.playerId);
+  if(debts)fail(`${who.name} still owes ${money(debts.reduce((n,d)=>n+d.amount,0))} from ${[...new Set(debts.map(d=>d.game.title))].join(', ')}. Mark it paid on Settlements before they buy in.`);
   const deferred=s.mode==='decentralized';
   if(!deferred&&!METHODS.includes(p.method))fail('Choose a payment method.');
   entry(s,'buyin',amount(p.amount),{playerId:p.playerId,status:deferred?'pending':p.received?'received':'pending',...(!deferred?{method:p.method}:{}),note:text(p.note)});break;
@@ -60,6 +63,7 @@ export function applyCommand(original,command){
   if(missing.length)fail('Record a final cash-out, even $0, for '+missing.map(pid=>player(pid).name).join(', ')+'.');
   s.status='closed';s.endedAt=at;break;
  }
+ case 'send-reminders':{if(p.playerIds!==undefined&&(!Array.isArray(p.playerIds)||p.playerIds.length>100||p.playerIds.some(pid=>typeof pid!=='string')))fail('Choose players to remind.');break;}
  case 'send-update':{const s=session();if(p.playerIds!==undefined&&(!Array.isArray(p.playerIds)||p.playerIds.length>100||p.playerIds.some(pid=>!participants(s).includes(pid))))fail('Choose players from this game.');break;}
  case 'reopen-session':{const s=session();s.status='open';s.endedAt=null;break;}
  case 'notes':{session().notes=text(p.notes,5000);break;}

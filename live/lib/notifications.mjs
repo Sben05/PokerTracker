@@ -1,4 +1,5 @@
 import {BANK_ID,participants,playerStats,stats,money,signedMoney,simplify} from './engine.mjs';
+import {outstandingDebts} from './analytics.mjs';
 export const SITE='https://pokertracker-cfb7b.web.app';
 export function normalizePlayerEmail(value) {
  const email=String(value??'').trim();
@@ -25,6 +26,7 @@ export function gameSummary(ledger,game,playerId){
 
 export function notificationEvents(before,after,command){
  const {type,payload:p={}}=command;
+ if(type==='send-reminders')return paymentReminders(after).filter(r=>!Array.isArray(p.playerIds)||p.playerIds.includes(r.playerId));
  const game=after.sessions.find(s=>s.id===p.sessionId);
  if(!game)return [];
  if(type==='send-update'){
@@ -37,17 +39,12 @@ export function notificationEvents(before,after,command){
  return [];
 }
 
-// Morning reminders: one email per player who still owes money in any final game.
+// Payment reminders, sent on request: one email per player who still owes in any final game.
 export function paymentReminders(ledger){
- const name=nameIn(ledger),owed=new Map();
- for(const game of ledger.sessions.filter(settled))for(const t of simplify(game)){
-  if(t.from===BANK_ID)continue;
-  if(!owed.has(t.from))owed.set(t.from,[]);
-  owed.get(t.from).push({...t,game});
- }
+ const name=nameIn(ledger),owed=outstandingDebts(ledger);
  return [...owed].map(([playerId,items])=>{
   const total=items.reduce((n,t)=>n+t.amount,0);
-  const lines=[`Hi ${name(playerId)},`,'','Quick reminder, you still need to send:',...items.map(t=>`  ${money(t.amount)} to ${name(t.to)} (${t.game.title})`),'',`Already paid? Ask the organizer to mark it paid so these reminders stop.`,'',`Details: ${link(items[0].game)}`,'','Felt Club Poker OS'];
+  const lines=[`Hi ${name(playerId)},`,'','Quick reminder, you still need to send:',...items.map(t=>`  ${money(t.amount)} to ${name(t.to)} (${t.game.title})`),'',`Already paid? Ask the organizer to mark it paid so these reminders stop.`,'',`Details: ${SITE}/settlements`,'','Felt Club Poker OS'];
   return {playerId,subject:`Reminder: you owe ${money(total)}`,body:lines.join('\n')};
  });
 }

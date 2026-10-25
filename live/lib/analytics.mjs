@@ -1,4 +1,4 @@
-import {BANK_ID, balances, participants, playerStats, stats} from './engine.mjs';
+import {BANK_ID, balances, participants, playerStats, stats, simplify} from './engine.mjs';
 // Keep obligations per game: a win in another game does not confirm a payment here.
 export function outstandingPayments(s) {
   if (s.status !== 'closed' && s.mode === 'decentralized') return [];
@@ -61,3 +61,16 @@ export function balanceCalculation(s, id) {
   return {id, ...p, confirmed: p.sentDirect - p.paidOut, pending, balance: balances(s).get(id) || 0, plannedBalance: balances(s, {includePending: true}).get(id) || 0};
 }
 export {BANK_ID};
+
+// Unpaid transfers from finished games, keyed by the player who must pay.
+export function outstandingDebts(ledger) {
+  const owed = new Map();
+  for (const game of ledger.sessions.filter(s => s.status === 'closed' && stats(s).unresolved === 0)) {
+    for (const t of simplify(game)) {
+      if (t.from === BANK_ID) continue;
+      if (!owed.has(t.from)) owed.set(t.from, []);
+      owed.get(t.from).push({...t, game});
+    }
+  }
+  return owed;
+}

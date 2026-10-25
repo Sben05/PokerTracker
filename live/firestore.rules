@@ -38,11 +38,6 @@ service cloud.firestore {
    allow update: if editor() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['endpoint']) && request.resource.data.endpoint is string && request.resource.data.endpoint.matches('https://script[.]google[.]com/macros/s/[A-Za-z0-9_-]+/exec');
    allow delete: if false;
   }
-  match /reminderLog/{day} {
-   allow read: if editor();
-   allow create: if editor() && day.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}') && request.resource.data.keys().hasOnly(['sentAt','count','players']) && request.resource.data.sentAt is string && request.resource.data.count is int && request.resource.data.players is list;
-   allow update, delete: if false;
-  }
   match /musicRooms/{roomId} {
    allow read: if true;
    allow create, update: if editor() && request.resource.data.keys().hasOnly(['hostId','hostName','startedAt','heartbeat','recording','playing','device','deviceId','isPlaying','jamUrl']) && request.resource.data.hostId is string && request.resource.data.hostName is string && request.resource.data.recording is bool && request.resource.data.heartbeat is string && request.resource.data.startedAt is string && request.resource.data.deviceId is string && request.resource.data.jamUrl is string;

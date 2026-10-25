@@ -228,3 +228,13 @@ td{font-size:14px;color:#eadfc6}.numeric{font-size:16px}
  .settle-row{flex-wrap:wrap;padding:14px 16px;gap:10px}.settle-who{flex-basis:100%;font-size:14px}.settle-row strong{flex:1;font-size:20px}
  .settle-head h2{font-size:26px}.email-rules{grid-template-columns:1fr}
 }
+/* All-time settlements */
+.debtor-list{display:flex;flex-direction:column;gap:14px}
+.debtor header{display:flex;align-items:center;gap:12px;padding:16px 22px;border-bottom:1px solid rgba(207,175,119,.12)}
+.debtor-name{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0}.debtor-name b{font:400 20px Georgia,serif;color:#f0dfba}
+.debtor-name small{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#e8a46e}
+.debtor header>strong{font:400 26px Georgia,serif;font-variant-numeric:tabular-nums}
+.remind-button{width:40px;height:40px;display:grid;place-items:center;border-radius:50%;border:1px solid var(--brass-line)!important;background:rgba(207,175,119,.06);color:#d8b97f;cursor:pointer}
+.debtor .settle-row{padding:12px 22px 12px 34px}.debtor .settle-row strong{font-size:18px}
+.debt-game{margin-left:8px;font-size:12px;color:#a9946d;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.debt-game:hover{color:#e3c690}
+@media(max-width:700px){.debtor header{padding:14px 16px;flex-wrap:wrap}.debtor header>strong{font-size:22px}.debtor .settle-row{padding:12px 16px}}
