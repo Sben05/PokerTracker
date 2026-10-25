@@ -1,5 +1,7 @@
 import React from 'react';
 import {createRoot} from 'react-dom/client';
-import PokerBank from '../app/page';
+import FeltClub from '../app/page';
 import '../app/globals.css';
-createRoot(document.getElementById('root')!).render(<PokerBank/>);
+import '../app/front-redesign.css';
+import '../app/polish.css';
+createRoot(document.getElementById('root')!).render(<FeltClub/>);

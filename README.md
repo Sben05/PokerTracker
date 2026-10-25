@@ -1,4 +1,4 @@
-# PokerBank — The House Ledger
+# Felt Club | Poker OS
 
 Open the app: https://pokertracker-cfb7b.web.app
 

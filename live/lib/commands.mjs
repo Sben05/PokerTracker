@@ -1,3 +1,4 @@
+import {normalizePlayerEmail} from './notifications.mjs';
 import {makeStore, makeSession, createPlayer, cents, METHODS, BANK_ID, participants, playerStats, allocateVariance, splitVariance, validateImported} from './engine.mjs';
 export class CommandError extends Error {}
 const fail=message=>{throw new CommandError(message)};
@@ -6,7 +7,7 @@ const amount=(v,zero=false)=>{const n=cents(v);if(!zero&&!n)fail('Enter an amoun
 export function applyCommand(original,command){
  const data=structuredClone(original||makeStore());
  if(!command||typeof command.id!=='string'||command.id.length>100||!command.id)fail('Missing action ID.');
- const p=command.payload||{},at=new Date().toISOString(),id=command.id;
+ const p=command.payload||{};if(['add-player','edit-player'].includes(command.type)&&p.email!==undefined)normalizePlayerEmail(p.email);const at=new Date().toISOString(),id=command.id;
  const session=()=>data.sessions.find(s=>s.id===p.sessionId)||fail('This game no longer exists. Refresh and try again.');
  const player=pid=>data.players.find(x=>x.id===pid)||fail('Choose a player.');
  const open=s=>{if(s.status!=='open')fail('This game is closed. Reopen it before adding chips.');};
@@ -59,6 +60,7 @@ export function applyCommand(original,command){
   if(missing.length)fail('Record a final cash-out, even $0, for '+missing.map(pid=>player(pid).name).join(', ')+'.');
   s.status='closed';s.endedAt=at;break;
  }
+ case 'send-update':{const s=session();if(p.playerIds!==undefined&&(!Array.isArray(p.playerIds)||p.playerIds.length>100||p.playerIds.some(pid=>!participants(s).includes(pid))))fail('Choose players from this game.');break;}
  case 'reopen-session':{const s=session();s.status='open';s.endedAt=null;break;}
  case 'notes':{session().notes=text(p.notes,5000);break;}
  case 'allocate':{allocateVariance(session(),p.playerId,amount(p.amount),text(p.note));break;}

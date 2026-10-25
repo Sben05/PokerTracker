@@ -14,5 +14,50 @@ service cloud.firestore {
    allow create: if editor() && request.resource.data.keys().hasOnly(['type','createdAt','revision']) && request.resource.data.type is string && request.resource.data.createdAt is string && request.resource.data.revision is int && getAfter(/databases/$(database)/documents/ledgers/house).data.lastCommandId == operationId && getAfter(/databases/$(database)/documents/ledgers/house).data.revision == request.resource.data.revision;
    allow update, delete: if false;
   }
+  // Contacts and email content never belong in the public ledger.
+  match /playerContacts/{playerId} {
+   allow read: if editor();
+   allow create, update: if editor() && request.resource.data.keys().hasOnly(['email','enabled','updatedAt']) && request.resource.data.email is string && request.resource.data.email.size() <= 254 && request.resource.data.enabled is bool && request.resource.data.updatedAt is string;
+   allow delete: if editor();
+  }
+  match /emailNotifications/{notificationId} {
+   allow read: if editor();
+   allow create: if editor() && request.resource.data.keys().hasOnly(['playerId','subject','body','gameId','to','operationId','status','createdAt']) && request.resource.data.status == 'pending' && request.resource.data.to is string && request.resource.data.to.size() <= 254 && request.resource.data.subject is string && request.resource.data.subject.size() <= 500 && request.resource.data.body is string && request.resource.data.body.size() <= 50000 && request.resource.data.playerId is string && request.resource.data.operationId is string && request.resource.data.createdAt is string && getAfter(/databases/$(database)/documents/ledgers/house).data.lastCommandId == request.resource.data.operationId;
+   // The editor's browser delivers mail and may only change delivery status, never content or recipient.
+   allow update: if editor() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','error','attemptedAt','finishedAt','provider']) && request.resource.data.status in ['pending','sending','sent','failed'];
+   allow delete: if false;
+  }
+  match /notificationSettings/emailjs {
+   allow read: if editor();
+   allow create, update: if editor() && request.resource.data.keys().hasOnly(['serviceId','templateId','publicKey','updatedAt']) && request.resource.data.serviceId.matches('[A-Za-z0-9_-]{3,100}') && request.resource.data.templateId.matches('[A-Za-z0-9_-]{3,100}') && request.resource.data.publicKey.matches('[A-Za-z0-9_-]{3,100}') && request.resource.data.updatedAt is string;
+   allow delete: if false;
+  }
+  match /notificationSettings/gmail {
+   allow read: if editor();
+   allow create: if editor() && request.resource.data.keys().hasOnly(['endpoint']) && request.resource.data.endpoint is string && request.resource.data.endpoint.matches('https://script[.]google[.]com/macros/s/[A-Za-z0-9_-]+/exec');
+   allow update: if editor() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['endpoint']) && request.resource.data.endpoint is string && request.resource.data.endpoint.matches('https://script[.]google[.]com/macros/s/[A-Za-z0-9_-]+/exec');
+   allow delete: if false;
+  }
+  match /reminderLog/{day} {
+   allow read: if editor();
+   allow create: if editor() && day.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}') && request.resource.data.keys().hasOnly(['sentAt','count','players']) && request.resource.data.sentAt is string && request.resource.data.count is int && request.resource.data.players is list;
+   allow update, delete: if false;
+  }
+  match /musicRooms/{roomId} {
+   allow read: if true;
+   allow create, update: if editor() && request.resource.data.keys().hasOnly(['hostId','hostName','startedAt','heartbeat','recording','playing','device','deviceId','isPlaying','jamUrl']) && request.resource.data.hostId is string && request.resource.data.hostName is string && request.resource.data.recording is bool && request.resource.data.heartbeat is string && request.resource.data.startedAt is string && request.resource.data.deviceId is string && request.resource.data.jamUrl is string;
+   allow delete: if false;
+   match /plays/{playId} {
+    allow read: if true;
+    allow create, update: if editor() && request.resource.data.keys().hasOnly(['track','playedAt','source']) && request.resource.data.track is map && request.resource.data.playedAt is string && request.resource.data.source in ['observed','recent'];
+    allow delete: if false;
+   }
+   match /requests/{requestId} {
+    allow read: if true;
+    allow create: if request.resource.data.keys().hasOnly(['action','uri','by','createdAt','status']) && request.resource.data.action in ['play','pause','next','previous','queue'] && request.resource.data.uri is string && request.resource.data.by is string && request.resource.data.createdAt is string && request.resource.data.status == 'pending' && (request.resource.data.action == 'queue' || editor());
+    allow update: if editor() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','error','finishedAt']) && request.resource.data.status in ['processing','done','failed'];
+    allow delete: if false;
+   }
+  }
  }
 }
