@@ -37,6 +37,8 @@ export default function OpenStaxPoker(){
  const [intro,setIntro]=useState(shouldPlayIntro);const videoRef=useRef<HTMLVideoElement>(null);
  useEffect(()=>{try{localStorage.setItem('felt-club.motion',motion?'on':'off');}catch{}const v=videoRef.current;if(v){if(motion)void v.play().catch(()=>{});else v.pause();}},[motion]);
  useEffect(()=>{const preference=window.matchMedia('(prefers-reduced-motion: reduce)');const changed=()=>{if(preference.matches)setMotion(false);};preference.addEventListener('change',changed);return()=>preference.removeEventListener('change',changed);},[]);
+ // Lay out against the 1672x941 design canvas and scale the whole interface to the window.
+ useEffect(()=>{const fit=()=>{const w=window.innerWidth,h=window.innerHeight,scale=w>=1100?Math.min(1.6,Math.max(.72,Math.min(w/1672,h/941))):1,root=document.documentElement;root.style.setProperty('--ui-scale',String(scale));root.style.setProperty('--vh',`${h/scale}px`);};fit();window.addEventListener('resize',fit);return()=>window.removeEventListener('resize',fit);},[]);
  const [editor,setEditor]=useState(false);const editorRef=useRef(false),afterUnlock=useRef<any>(null);
  const fileRef=useRef<HTMLInputElement>(null),dialogRef=useRef<HTMLDialogElement>(null),returnFocus=useRef<HTMLElement|null>(null);
  const s=sessionId?data.sessions.find((x:any)=>x.id===sessionId):data.sessions.at(-1),st=s?stats(s):null,ids=s?participants(s):[];
@@ -138,9 +140,12 @@ export default function OpenStaxPoker(){
 
  function DashboardPage(){
   const a=ledgerAnalytics(data),recent=[...data.sessions].reverse(),openGames=recent.filter((g:any)=>g.status==='open');
-  const events=data.sessions.flatMap((g:any)=>[...(g.createdAt?[{at:g.createdAt,kind:'start',game:g}]:[]),...(g.endedAt?[{at:g.endedAt,kind:'close',game:g}]:[]),...g.entries.filter((e:any)=>!e.voidedAt&&e.at&&(e.type!=='transfer'||e.status==='paid')).map((e:any)=>({at:e.at,kind:e.type,e,game:g}))]).sort((x:any,y:any)=>y.at.localeCompare(x.at)).slice(0,7);
+  const events=data.sessions.flatMap((g:any)=>[...(g.createdAt?[{at:g.createdAt,kind:'start',game:g}]:[]),...(g.endedAt?[{at:g.endedAt,kind:'close',game:g}]:[]),...g.entries.filter((e:any)=>!e.voidedAt&&e.at&&(e.type!=='transfer'||e.status==='paid')).map((e:any)=>({at:e.at,kind:e.type,e,game:g}))]).sort((x:any,y:any)=>y.at.localeCompare(x.at)).slice(0,30);
   const live=liveGame,liveIds=live?participants(live):[];
-  return <>
+  const when=(at:string)=>sameDay(at)?formatTime(at):`${new Date(at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}, ${formatTime(at)}`;
+  const settleAll=()=>{if(!unpaidRows.length||!confirm(`Mark all ${unpaidRows.length} payments (${money(unpaidTotal)}) as paid?`))return;for(const t of unpaidRows)settle(t.game.id,t.from,t.to,t.amount,t.method);};
+  const showMethod=unpaidRows.some((t:any)=>t.method);
+  return <div className="dash">
   <div className="stats">
    <StatCard icon={Users} label="Open Games" value={openGames.length} sub={`${a.completed} closed · ${data.sessions.length} total`} onClick={()=>navigate('history')}/>
    <StatCard icon={FileText} label="Unpaid Settlements" value={unpaidRows.length} sub={`${money(unpaidTotal)} total`} onClick={()=>navigate('owed')} view/>
@@ -148,22 +153,22 @@ export default function OpenStaxPoker(){
    {differenceCard}
   </div>
   <div className="grid-main">
-   <section className="box"><div className="box-title"><h2>Current Table{live&&<Pill kind="open">Open</Pill>}{live&&<small style={{fontSize:15,color:'#d8d3c7',fontWeight:400}}>{live.title}</small>}</h2><div className="tools">{live?<><span className="meta"><Clock size={14} style={{verticalAlign:'-2px'}}/> {duration(live)}</span><button className="btn" onClick={()=>selectGame(live.id)}><SettingsIcon size={16}/>Manage Game</button></>:<button className="btn gold" onClick={()=>open('session')}><Plus size={16}/>New game</button>}</div></div>
-    <PokerTable seats={liveIds.map((id:any)=>{const p=playerStats(live,id);return {id,name:person(id),index:indexOf(id),amount:p.open?p.bought:p.cashed,out:!p.open};})} title={live?live.title:'No game running'} subtitle={live?`${liveIds.length} players · ${live.mode==='centralized'?'Banker collects':'Pay at end'}`:'Start a game to seat players'} total={live?stats(live).totalIn-stats(live).adjusted:0} onSeat={id=>live&&open('buyin',{playerId:id})}/>
+   <section className="box"><div className="box-title"><h2>Current Table{live&&<><Pill kind="playing">Live</Pill><span className="title-meta">{live.title}<i/>{live.mode==='centralized'?'Banker collects':'Pay at end'}</span></>}</h2><div className="tools">{live?<><span className="meta"><Clock size={14}/>{duration(live)}</span><button className="btn small" onClick={()=>selectGame(live.id)}><SettingsIcon size={15}/>Manage Game</button></>:<button className="btn gold small" onClick={()=>open('session')}><Plus size={15}/>New game</button>}</div></div>
+    <PokerTable seats={liveIds.map((id:any)=>{const p=playerStats(live,id);return {id,name:person(id),index:indexOf(id),amount:p.open?p.bought:p.cashed,out:!p.open};})} title={live?live.title:'No game running'} subtitle={live?undefined:'Start a game to seat players'} total={live?stats(live).totalIn-stats(live).adjusted:0} totalLabel="In play" onSeat={id=>live&&open('buyin',{playerId:id})}/>
    </section>
    <section className="box"><div className="box-title"><h2>Settlement Queue{unpaidRows.length>0&&<span className="count-pill">{unpaidRows.length} Unpaid</span>}</h2><a className="link" {...link('owed')}>View All <ArrowRight size={15}/></a></div>
-    <div className="scroll"><table><thead><tr><th>From</th><th>To</th><th className="num">Amount</th><th>Status</th><th/></tr></thead><tbody>{unpaidRows.length?unpaidRows.slice(0,6).map((t:any)=><tr key={`${t.game.id}-${t.from}-${t.to}`}><td>{who(t.from)}</td><td>{who(t.to)}</td><td className="num amt">{money(t.amount)}</td><td><Pill kind="unpaid">Unpaid</Pill></td><td className="act"><button className="btn small settle" onClick={()=>settle(t.game.id,t.from,t.to,t.amount,t.method)}>Settle</button></td></tr>):<tr><td className="empty" colSpan={5}>Nobody owes anything.</td></tr>}</tbody></table></div>
-    <div className="box-foot"><span className="total"><Coins size={30}/><span><small>Total Outstanding</small><strong>{money(unpaidTotal)}</strong> <small style={{display:'inline'}}>&nbsp;{unpaidRows.length} settlement{unpaidRows.length===1?'':'s'}</small></span></span><button className="btn green" onClick={()=>navigate('owed')}>Settle up</button></div>
+    <div className="scroll"><table><thead><tr><th>From</th><th>To</th><th className="num">Amount</th>{showMethod&&<th>Method</th>}<th>Status</th><th>Action</th></tr></thead><tbody>{unpaidRows.length?unpaidRows.map((t:any)=><tr key={`${t.game.id}-${t.from}-${t.to}-${t.method||''}`}><td>{who(t.from)}</td><td>{who(t.to)}</td><td className="num amt">{money(t.amount)}</td>{showMethod&&<td>{t.method?<Method method={t.method}/>:<span className="muted">Any</span>}</td>}<td><Pill kind="unpaid">Unpaid</Pill></td><td className="act"><button className="btn small settle" onClick={()=>settle(t.game.id,t.from,t.to,t.amount,t.method)}>Settle</button></td></tr>):<tr><td className="empty" colSpan={6}>Nobody owes anything.</td></tr>}</tbody></table></div>
+    <div className="box-foot"><span className="total"><Coins size={28}/><span><small>Total Outstanding</small><strong>{money(unpaidTotal)}</strong><em>{unpaidRows.length} settlement{unpaidRows.length===1?'':'s'}</em></span></span><button className="btn green" disabled={!unpaidRows.length} onClick={settleAll}>Settle All</button></div>
    </section>
   </div>
   <div className="grid-main">
    <section className="box"><div className="box-title"><h2>Recent Games</h2><a className="link" {...link('history')}>View All <ArrowRight size={15}/></a></div><div className="scroll"><table><thead><tr><th>Date</th><th>Game</th><th>Duration</th><th className="num">Players</th><th className="num">Buy-ins</th><th className="num">Cash-outs</th><th>Status</th></tr></thead><tbody>
-    {recent.length?recent.slice(0,6).map((g:any)=>{const t=stats(g);return <tr key={g.id} className="clickable" onClick={()=>selectGame(g.id)}><td>{formatDate(gameDate(g))}</td><td>{g.title}</td><td>{duration(g)}</td><td className="num">{participants(g).length}</td><td className="num">{money(t.totalIn)}</td><td className="num">{money(t.totalOut)}</td><td>{gameStatus(g)}</td></tr>;}):<tr><td className="empty" colSpan={7}>No games yet.</td></tr>}
+    {recent.length?recent.map((g:any)=>{const t=stats(g);return <tr key={g.id} className="clickable" onClick={()=>selectGame(g.id)}><td>{formatDate(gameDate(g))}</td><td>{g.title}</td><td>{duration(g)}</td><td className="num">{participants(g).length}</td><td className="num">{money(t.totalIn)}</td><td className="num">{money(t.totalOut)}</td><td>{gameStatus(g)}</td></tr>;}):<tr><td className="empty" colSpan={7}>No games yet.</td></tr>}
    </tbody></table></div></section>
    <section className="box"><div className="box-title"><h2>Recent Activity</h2>{s&&<a className="link" {...link('activity',s.id)}>View All <ArrowRight size={15}/></a>}</div><div className="scroll"><table><thead><tr><th>Time</th><th>Event</th><th>Details</th></tr></thead><tbody>
-    {events.length?events.map((v:any,i:number)=><tr key={i}><td className="muted">{sameDay(v.at)?formatTime(v.at):formatDate(v.at)}</td><td>{v.kind==='start'?<span className="event"><Play size={15} fill="currentColor"/>Game started</span>:v.kind==='close'?<span className="event close"><Flag size={15}/>Game closed</span>:v.kind==='buyin'?<span className="event"><Coins size={15}/>Buy-in recorded</span>:v.kind==='cashout'?<span className="event close"><LogOut size={15}/>Cash-out recorded</span>:<span className="event pay"><CheckCircle2 size={15}/>Settlement recorded</span>}</td><td>{v.kind==='start'||v.kind==='close'?v.game.title:v.kind==='transfer'?<>{person(v.e.from)} → {person(v.e.to)} <span className="positive">{money(v.e.amount)}</span></>:<>{person(v.e.playerId)} <span className="amt">{money(v.e.amount)}</span></>}</td></tr>):<tr><td className="empty" colSpan={3}>Nothing recorded yet.</td></tr>}
+    {events.length?events.map((v:any,i:number)=><tr key={i}><td className="muted">{when(v.at)}</td><td>{v.kind==='start'?<span className="event"><Play size={15} fill="currentColor"/>Game started</span>:v.kind==='close'?<span className="event close"><Flag size={15}/>Game closed</span>:v.kind==='buyin'?<span className="event"><Coins size={15}/>Buy-in recorded</span>:v.kind==='cashout'?<span className="event close"><LogOut size={15}/>Cash-out recorded</span>:<span className="event pay"><CheckCircle2 size={15}/>Settlement recorded</span>}</td><td>{v.kind==='start'||v.kind==='close'?v.game.title:v.kind==='transfer'?<>{person(v.e.from)} → {person(v.e.to)} <span className="positive">{money(v.e.amount)}</span>{v.e.method&&<span className="muted"> ({v.e.method})</span>}</>:<>{person(v.e.playerId)} <span className="amt">{money(v.e.amount)}</span></>}</td></tr>):<tr><td className="empty" colSpan={3}>Nothing recorded yet.</td></tr>}
    </tbody></table></div></section>
-  </div></>;
+  </div></div>;
  }
 
  function GamesPage(){
@@ -308,16 +313,15 @@ export default function OpenStaxPoker(){
  <header className="topnav"><a className="brand" href="/" onClick={e=>{e.preventDefault();navigate('overview');}}><Spade size={34} fill="currentColor" strokeWidth={1}/><span>OpenStax <b>Poker</b></span></a>
   <nav className="mainnav" aria-label="Main navigation">{nav.map(n=><a key={n.id} href={n.href} className={n.active?'active':''} aria-current={n.active?'page':undefined} onClick={e=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();n.go();}}>{n.label}{!!n.count&&<span className="nav-count">{n.count}</span>}</a>)}</nav>
   <div className="top-right">
-   {liveGame&&<a className="live-chip" {...link('game',liveGame.id)}><i className="dot"/><span><b>{liveGame.title}</b><small>{participants(liveGame).length} players · {duration(liveGame)}</small></span></a>}
+   {liveGame&&<a className="live-chip" title={liveGame.title} {...link('game',liveGame.id)}><i className="dot"/><span><b>Live Game</b><small>{participants(liveGame).length} players · {duration(liveGame)}</small></span></a>}
    {!allSaved&&<button className={`icon-btn ${online?'busy':''}`} title={syncLabel} aria-label={syncLabel} onClick={()=>navigate('settings')}>{online?<LoaderCircle size={18}/>:<CloudOff size={18}/>}</button>}
    <button className={`icon-btn ${page==='music'?'on':''}`} title="Music" aria-label="Music" onClick={()=>navigate('music')}><Headphones size={18}/>{music.room?.isPlaying&&<i className="badge-dot" style={{background:'var(--green)'}}/>}</button>
    <button className={`icon-btn ${page==='settings'?'on':''}`} title="Settings" aria-label="Settings" onClick={()=>navigate('settings')}><SettingsIcon size={18}/></button>
    <button className="icon-btn" title="Share" aria-label="Share this page" onClick={()=>open('share')}><Share2 size={18}/></button>
-   <button className="icon-btn" title={motion?'Pause background':'Play background'} aria-label={motion?'Pause background video':'Play background video'} onClick={()=>setMotion(v=>!v)}>{motion?<Pause size={17}/>:<Play size={17}/>}</button>
    <button className={`icon-btn ${editor?'on':''}`} title={editor?'Editing unlocked · click to lock':'Unlock editing'} aria-label={editor?'Lock editing':'Unlock editing'} onClick={()=>editor?lock():open('unlock')}>{editor?<LockKeyholeOpen size={18}/>:<LockKeyhole size={18}/>}</button>
   </div>
  </header>
- <main id="main" className="page">
+ <main id="main" className={`page ${page==='overview'||page==='game'?'fit-page':''}`}>
   {!online&&<div className="notice" role="status"><CloudOff size={18}/><span>{pending?'Offline. Your changes are saved on this device and will sync when you reconnect.':'Offline. Showing the last saved table.'} <button className="link" onClick={()=>retry()}>Retry</button></span></div>}
   {error&&<div className="alert" role="alert"><span>{error} The rejected change is kept on this device.</span><button className="dots" aria-label="Dismiss error" onClick={clearError}><X size={15}/></button></div>}
   {(page==='music'||page==='settings')&&<div className="game-bar"><div className="game-chip"><h1>{page==='music'?'Music':'Settings'}</h1></div></div>}

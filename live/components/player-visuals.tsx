@@ -41,28 +41,29 @@ export function ChipStack({amount, seed = 0, className = ''}: {amount: number, s
  return <span className={`chips ${className}`} aria-hidden="true">{Array.from({length: stacks}, (_, k) => {const n = Math.max(2, count - k * 3);return <span className="chip-stack" key={k} style={{height: `${n * 4 + 8}px`}}>{Array.from({length: n}, (_, i) => <i key={i} style={{'--c': CHIP_COLORS[(seed + k * 2 + (i >= n - 2 ? 1 : 0)) % CHIP_COLORS.length], bottom: `${i * 4}px`} as React.CSSProperties}/>)}</span>;})}</span>;
 }
 
-// Spots in front of the nine chairs of table.png, clockwise from the top center, as % of the image.
-const SEATS = [[43, 18], [58, 18], [73, 23], [86, 44], [73, 71], [50, 76], [27, 71], [14, 44], [27, 23]];
+// Spots on the rail in front of the nine chairs of table.png, clockwise from the top center, as % of the image.
+const SEATS = [[43, 27], [58, 27], [72, 30], [84, 46], [72, 66], [50, 70], [28, 66], [16, 46], [28, 30]];
 const seatSpot = (i: number, n: number) => {
  if (n <= SEATS.length) return SEATS[Math.round(i * SEATS.length / n) % SEATS.length];
  const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
  return [50 + Math.cos(angle) * 33, 47 + Math.sin(angle) * 24];
 };
 
-// The photographed table; players, chips, cards and pot are placed on top of it.
+// The photographed table, cropped to the rail; players, chips, cards and pot are placed on top of it.
 export function PokerTable({seats, title, subtitle, total, totalLabel = 'In play', onSeat}: {seats: {id: string, name: string, index: number, amount: number, out?: boolean}[], title: string, subtitle?: string, total: number, totalLabel?: string, onSeat?: (id: string) => void}) {
  return <div className="table-stage" role="img" aria-label={`${title}${subtitle ? `, ${subtitle}` : ''}`}>
   <div className="table-photo">
-   <img src="/table.png" alt="" draggable={false}/>
-   {seats.length ? <>
-    <div className="felt-cards">{CARDS.map(([r, s], i) => <span key={r + s} className={`card ${s === '♦' || s === '♥' ? 'red' : ''}`} style={{'--r': `${(i - 2) * 1.5}deg`} as React.CSSProperties}><b>{r}</b><i>{s}</i></span>)}</div>
-    <span className="felt-pot"><ChipStack amount={total} seed={1}/><span><small>{totalLabel}</small><strong>{money(total)}</strong></span><ChipStack amount={total} seed={3}/></span>
-    <span className="dealer" style={{left: '64%', top: '37%'}}>D</span>
-   </> : <div className="felt-empty"><b>{title}</b>{subtitle && <small>{subtitle}</small>}</div>}
-   {seats.map((p, i) => {const [x, y] = seatSpot(i, seats.length), cx = 50 + (x - 50) * .6, cy = 46 + (y - 46) * .68;return <span key={p.id}>
-    <span className="seat-chips" style={{left: `${cx}%`, top: `${cy}%`}}><ChipStack amount={p.amount} seed={i}/></span>
-    <button type="button" className={`seat ${p.out ? 'out' : ''}`} style={{left: `${x}%`, top: `${y}%`}} onClick={() => onSeat?.(p.id)}><Avatar name={p.name} index={p.index}/><span><b>{p.name}</b><em>{money(p.amount)}</em></span></button>
-   </span>;})}
+   <div className="table-clip"><div className="table-canvas"><img src="/table.png" alt="" draggable={false}/></div></div>
+   <div className="table-canvas">
+    {seats.length ? <>
+     <div className="felt-cards">{CARDS.map(([r, s], i) => <span key={r + s} className={`card ${s === '♦' || s === '♥' ? 'red' : ''}`} style={{'--r': `${(i - 2) * 1.5}deg`} as React.CSSProperties}><b>{r}</b><i>{s}</i></span>)}</div>
+     <span className="felt-pot"><ChipStack amount={total} seed={1}/><span><small>{totalLabel}</small><strong>{money(total)}</strong></span><ChipStack amount={total} seed={3}/></span>
+    </> : <div className="felt-empty"><b>{title}</b>{subtitle && <small>{subtitle}</small>}</div>}
+    {seats.map((p, i) => {const [x, y] = seatSpot(i, seats.length), cx = 50 + (x - 50) * .6, cy = 46 + (y - 46) * .72;return <span key={p.id}>
+     <span className="seat-chips" style={{left: `${cx}%`, top: `${cy}%`}}><ChipStack amount={p.amount} seed={i}/></span>
+     <button type="button" className={`seat ${p.out ? 'out' : ''}`} style={{left: `${x}%`, top: `${y}%`}} onClick={() => onSeat?.(p.id)}><Avatar name={p.name} index={p.index}/><span><b>{p.name}</b><em>{money(p.amount)}</em></span></button>
+    </span>;})}
+   </div>
   </div>
  </div>;
 }
