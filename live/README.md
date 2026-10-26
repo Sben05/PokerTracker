@@ -60,7 +60,7 @@ The OpenStax Poker rename preserves existing storage keys, cookies, the sender m
 
 ## Interface
 
-The interface is a dark private card room: a slowly drifting table video (`public/felt-club-table.mp4`, poster `felt-club-table.jpg`) behind gold-trimmed panels, a top navigation bar, stat cards, and dense tables with player avatars and status pills. A short dealt-cards intro plays on load (click or any key skips it). Reduced-motion preferences skip the intro and pause the video; the header play/pause button remembers the choice locally. All styles live in `app/globals.css`.
+The interface is a dark private card room: a slowly drifting table video (`public/room-loop.mp4`, poster `room.jpg`), a photographed table (`table.png`) with players placed over its chairs behind gold-trimmed panels, a top navigation bar, stat cards, and dense tables with player avatars and status pills. A short dealt-cards intro plays on load (click or any key skips it). Reduced-motion preferences skip the intro and pause the video; the header play/pause button remembers the choice locally. All styles live in `app/globals.css`.
 
 ## Cash deposits, personal bankers, and cash-aware payouts
 

@@ -41,27 +41,28 @@ export function ChipStack({amount, seed = 0, className = ''}: {amount: number, s
  return <span className={`chips ${className}`} aria-hidden="true">{Array.from({length: stacks}, (_, k) => {const n = Math.max(2, count - k * 3);return <span className="chip-stack" key={k} style={{height: `${n * 4 + 8}px`}}>{Array.from({length: n}, (_, i) => <i key={i} style={{'--c': CHIP_COLORS[(seed + k * 2 + (i >= n - 2 ? 1 : 0)) % CHIP_COLORS.length], bottom: `${i * 4}px`} as React.CSSProperties}/>)}</span>;})}</span>;
 }
 
-// Oval table seen from above at an angle: padded rail, brass ring, walnut edge, felt, leather chairs.
-// Seats, chips and the pot stand up off the table so they stay readable.
+// Spots in front of the nine chairs of table.png, clockwise from the top center, as % of the image.
+const SEATS = [[43, 18], [58, 18], [73, 23], [86, 44], [73, 71], [50, 76], [27, 71], [14, 44], [27, 23]];
+const seatSpot = (i: number, n: number) => {
+ if (n <= SEATS.length) return SEATS[Math.round(i * SEATS.length / n) % SEATS.length];
+ const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+ return [50 + Math.cos(angle) * 33, 47 + Math.sin(angle) * 24];
+};
+
+// The photographed table; players, chips, cards and pot are placed on top of it.
 export function PokerTable({seats, title, subtitle, total, totalLabel = 'In play', onSeat}: {seats: {id: string, name: string, index: number, amount: number, out?: boolean}[], title: string, subtitle?: string, total: number, totalLabel?: string, onSeat?: (id: string) => void}) {
- const at = (i: number, rx: number, ry: number) => {const angle = (i / Math.max(1, seats.length)) * Math.PI * 2 - Math.PI / 2; return {angle, left: `${50 + Math.cos(angle) * rx}%`, top: `${50 + Math.sin(angle) * ry}%`};};
- const chairs = Math.max(8, seats.length);
  return <div className="table-stage" role="img" aria-label={`${title}${subtitle ? `, ${subtitle}` : ''}`}>
-  <div className="table-3d"><div className="table-plane">
-   {Array.from({length: chairs}, (_, i) => {const angle = (i / chairs) * Math.PI * 2 - Math.PI / 2;return <span key={i} className="chair" style={{left: `${50 + Math.cos(angle) * 55}%`, top: `${50 + Math.sin(angle) * 63}%`, '--a': `${angle + Math.PI / 2}rad`} as React.CSSProperties}/>;})}
-   <div className="rail"><div className="rail-brass"><div className="rail-wood"><div className="felt">
-    <div className="felt-grain"/>
-    <svg className="felt-line" viewBox="0 0 100 50" preserveAspectRatio="none"><ellipse cx="50" cy="25" rx="44" ry="20" fill="none" stroke="rgba(240,214,150,.38)" strokeWidth=".22"/></svg>
-    <div className="felt-logo"><Spade size={34} fill="currentColor" strokeWidth={1}/><span>OpenStax Poker</span></div>
-    {seats.length ? <div className="felt-cards">{CARDS.map(([r, s], i) => <span key={r + s} className={`card ${s === '♦' || s === '♥' ? 'red' : ''}`} style={{'--r': `${(i - 2) * 1.5}deg`} as React.CSSProperties}><b>{r}</b><i>{s}</i></span>)}</div>
-     : <div className="felt-empty"><b>{title}</b>{subtitle && <small>{subtitle}</small>}</div>}
-   </div></div></div></div>
-   {seats.length > 0 && <span className="dealer" style={{left: '61%', top: '20%'}}>D</span>}
-   {seats.map((p, i) => {const pile = at(i, 34, 24);return <span key={p.id} className="stand" style={{left: pile.left, top: pile.top}}><ChipStack amount={p.amount} seed={i}/></span>;})}
-   <span className="stand pot-stand" style={{left: '50%', top: '86%'}}><span className="felt-pot"><ChipStack amount={total} seed={1}/><span><small>{totalLabel}</small><strong>{money(total)}</strong></span><ChipStack amount={total} seed={3}/></span></span>
-   {seats.map((p, i) => {const seat = at(i, 47, 47);return <span key={p.id} className="stand seat-stand" style={{left: seat.left, top: seat.top}}>
-    <button type="button" className={`seat ${p.out ? 'out' : ''}`} onClick={() => onSeat?.(p.id)}><Avatar name={p.name} index={p.index}/><span><b>{p.name}</b><em>{money(p.amount)}</em></span></button>
+  <div className="table-photo">
+   <img src="/table.png" alt="" draggable={false}/>
+   {seats.length ? <>
+    <div className="felt-cards">{CARDS.map(([r, s], i) => <span key={r + s} className={`card ${s === '♦' || s === '♥' ? 'red' : ''}`} style={{'--r': `${(i - 2) * 1.5}deg`} as React.CSSProperties}><b>{r}</b><i>{s}</i></span>)}</div>
+    <span className="felt-pot"><ChipStack amount={total} seed={1}/><span><small>{totalLabel}</small><strong>{money(total)}</strong></span><ChipStack amount={total} seed={3}/></span>
+    <span className="dealer" style={{left: '64%', top: '37%'}}>D</span>
+   </> : <div className="felt-empty"><b>{title}</b>{subtitle && <small>{subtitle}</small>}</div>}
+   {seats.map((p, i) => {const [x, y] = seatSpot(i, seats.length), cx = 50 + (x - 50) * .6, cy = 46 + (y - 46) * .68;return <span key={p.id}>
+    <span className="seat-chips" style={{left: `${cx}%`, top: `${cy}%`}}><ChipStack amount={p.amount} seed={i}/></span>
+    <button type="button" className={`seat ${p.out ? 'out' : ''}`} style={{left: `${x}%`, top: `${y}%`}} onClick={() => onSeat?.(p.id)}><Avatar name={p.name} index={p.index}/><span><b>{p.name}</b><em>{money(p.amount)}</em></span></button>
    </span>;})}
-  </div></div>
+  </div>
  </div>;
 }
