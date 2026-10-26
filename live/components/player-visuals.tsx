@@ -1,67 +1,67 @@
-import {useState} from 'react';
-import {Layers, Trophy, TrendingUp, Flame, Mail} from 'lucide-react';
-import {money, signedMoney} from '../lib/engine.mjs';
+import {ChevronRight, Play, Circle, CircleAlert, Banknote, Coins, Spade} from 'lucide-react';
+import {money} from '../lib/engine.mjs';
 
 const tones = ['sage', 'clay', 'lilac', 'blue', 'sand', 'rose', 'teal'];
 const initials = (name: string) => name.split(' ').slice(0, 2).map(x => x[0]).join('').toUpperCase();
-const shortDate = (at: string | null) => at ? new Date(at).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : 'Undated';
 
 export function Avatar({name, index = 0, small = false}: {name: string, index?: number, small?: boolean}) {
- return <span className={`avatar ${tones[index % tones.length]} ${small ? 'small' : ''}`}>{initials(name)}</span>;
+ return <span className={`avatar ${tones[Math.max(0, index) % tones.length]} ${small ? 'small' : ''}`}>{initials(name)}</span>;
 }
 
-export function Sparkline({profile, height = 46}: {profile: any, height?: number}) {
- const [hover, setHover] = useState<number | null>(null);
- const points = [0, ...profile.series], w = 200, pad = 5;
- const lo = Math.min(0, ...points), hi = Math.max(0, ...points), span = hi - lo || 1;
- const x = (i: number) => pad + (i / Math.max(1, points.length - 1)) * (w - pad * 2);
- const y = (v: number) => pad + (1 - (v - lo) / span) * (height - pad * 2);
- const path = points.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('');
- const tone = profile.net >= 0 ? 'up' : 'down';
- const active = hover !== null && hover > 0 ? profile.results[hover - 1] : null;
- if (profile.results.length < 1) return <div className="spark-empty" style={{height}}>No closed games</div>;
- return <div className="spark" onPointerLeave={() => setHover(null)} onPointerMove={e => {const r = e.currentTarget.getBoundingClientRect(); setHover(Math.round(((e.clientX - r.left) / r.width) * (points.length - 1)));}}>
-  <svg viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none" style={{height}} role="img" aria-label={`Running total over ${profile.games} games: ${signedMoney(profile.net)}`}>
-   <line className="spark-zero" x1={pad} x2={w - pad} y1={y(0)} y2={y(0)}/>
-   <path className={`spark-area ${tone}`} d={`${path}L${x(points.length - 1)},${y(0)}L${x(0)},${y(0)}Z`}/>
-   <path className={`spark-line ${tone}`} d={path} vectorEffect="non-scaling-stroke"/>
-   {hover !== null && <line className="spark-cursor" x1={x(hover)} x2={x(hover)} y1={0} y2={height} vectorEffect="non-scaling-stroke"/>}
-  </svg>
-  <span className={`spark-dot ${tone}`} style={{left: `${(x(hover ?? points.length - 1) / w) * 100}%`, top: `${(y(points[hover ?? points.length - 1]) / height) * 100}%`}}/>
-  {active && <span className="spark-tip"><b>{active.title}</b><span>{shortDate(active.at)} · {signedMoney(active.net)}</span><span>Running {signedMoney(profile.series[hover! - 1])}</span></span>}
- </div>;
+export function Who({name, index, small = false}: {name: string, index: number, small?: boolean}) {
+ return <span className="who"><Avatar name={name} index={index} small={small}/><span>{name}</span></span>;
 }
 
-export function Standings({profiles, onPlayer}: {profiles: any[], onPlayer?: (id: string) => void}) {
- const rows = profiles.filter(p => p.games).sort((a, b) => b.net - a.net);
- const max = Math.max(1, ...rows.map(p => Math.abs(p.net)));
- return <div className="standings-chart" role="table" aria-label="All-time net by player">
-  {rows.map((p, i) => <button className="standing-row" role="row" key={p.id} onClick={() => onPlayer?.(p.id)} title={`${p.name}: ${signedMoney(p.net)} over ${p.games} game${p.games === 1 ? '' : 's'} · ${Math.round(p.winRate * 100)}% winning nights`}>
-   <span className="standing-name" role="cell"><Avatar name={p.name} index={i} small/>{p.name}</span>
-   <span className="standing-track" role="cell" aria-hidden="true">
-    <i className="standing-axis"/>
-    <i className={`standing-bar ${p.net >= 0 ? 'up' : 'down'}`} style={{width: `${(Math.abs(p.net) / max) * 50}%`}}/>
-   </span>
-   <span className={`standing-value ${p.net > 0 ? 'positive' : p.net < 0 ? 'negative' : ''}`} role="cell">{signedMoney(p.net)}</span>
-  </button>)}
- </div>;
+export function Method({method}: {method?: string}) {
+ if (!method) return <span className="muted">—</span>;
+ const badge = method === 'Venmo' ? <i className="method-badge venmo">V</i> : method === 'Zelle' ? <i className="method-badge zelle">Z</i> : method === 'Cash' ? <i className="method-badge cash"><Banknote size={13}/></i> : method === 'Coins' ? <i className="method-badge coins"><Coins size={13}/></i> : <i className="method-badge other">·</i>;
+ return <span className="method">{badge}{method}</span>;
 }
 
-export function PlayerCard({profile, index, email, onEmail}: {profile: any, index: number, email?: {email?: string, enabled?: boolean} | null, onEmail?: () => void}) {
- const p = profile;
- return <article className="player-tile">
-  <header>
-   <Avatar name={p.name} index={index}/>
-   <div><h3>{p.name}</h3><span className="tile-sub"><Layers size={12}/>{p.games} game{p.games === 1 ? '' : 's'}</span></div>
-   {onEmail && <button className={`mail-chip ${email?.email ? (email.enabled ? 'on' : 'off') : 'none'}`} onClick={onEmail} title={email?.email ? `${email.email}${email.enabled ? '' : ' (updates off)'}` : 'Add email for updates'} aria-label={email?.email ? `Email settings for ${p.name}` : `Add email for ${p.name}`}><Mail size={14}/></button>}
-  </header>
-  <strong className={`tile-net ${p.net > 0 ? 'positive' : p.net < 0 ? 'negative' : ''}`}>{p.games ? signedMoney(p.net) : '—'}</strong>
-  <Sparkline profile={p}/>
-  <footer>
-   <span title="Winning nights"><Trophy size={13}/>{p.games ? `${Math.round(p.winRate * 100)}%` : '—'}</span>
-   <span title="Best night"><TrendingUp size={13}/>{p.games ? signedMoney(p.best) : '—'}</span>
-   <span title={p.streak > 0 ? 'Winning streak' : p.streak < 0 ? 'Losing streak' : 'Streak'} className={p.streak > 1 ? 'hot' : ''}><Flame size={13}/>{p.streak ? `${Math.abs(p.streak)}${p.streak > 0 ? 'W' : 'L'}` : '—'}</span>
-   <span title="Total bought in"><span className="chip-glyph" aria-hidden="true"/>{money(p.bought)}</span>
-  </footer>
- </article>;
+export function Pill({kind, children}: {kind: 'open' | 'closed' | 'unsettled' | 'unpaid' | 'paid' | 'pending' | 'playing', children: React.ReactNode}) {
+ const icon = kind === 'open' ? <Play size={12} fill="currentColor"/> : kind === 'closed' ? <Circle size={12}/> : kind === 'unsettled' ? <CircleAlert size={12}/> : kind === 'playing' ? <i className="dot"/> : null;
+ return <span className={`pill ${kind}`}>{icon}{children}</span>;
+}
+
+export function StatCard({icon: Icon, label, value, sub, tone, onClick, view}: {icon: any, label: string, value: React.ReactNode, sub?: React.ReactNode, tone?: 'up' | 'down', onClick?: () => void, view?: boolean}) {
+ return <button type="button" className="stat" onClick={onClick} disabled={!onClick}>
+  <span className="stat-ring"><Icon size={30} strokeWidth={1.4}/></span>
+  <span className="stat-text"><span className="stat-label">{label}</span><strong className={`stat-value ${tone || ''}`}>{value}</strong>{sub && <span className="stat-sub">{sub}</span>}</span>
+  {onClick && (view ? <span className="stat-view">View <ChevronRight size={14}/></span> : <ChevronRight className="stat-go" size={20}/>)}
+ </button>;
+}
+
+const CARDS = [['A', '♠'], ['K', '♦'], ['10', '♣'], ['7', '♥'], ['2', '♠']];
+const CHIP_COLORS = ['#e9e4d4', '#b3262b', '#1f6b43', '#1c1c1f', '#2f4f9a'];
+
+// A tidy stack of chips; height grows with the amount.
+export function ChipStack({amount, seed = 0, className = ''}: {amount: number, seed?: number, className?: string}) {
+ const count = Math.max(1, Math.min(9, Math.ceil(amount / 1500)));
+ const stacks = amount > 6000 ? 2 : 1;
+ return <span className={`chips ${className}`} aria-hidden="true">{Array.from({length: stacks}, (_, k) => <span className="chip-stack" key={k}>{Array.from({length: Math.max(1, count - k * 2)}, (_, i) => <i key={i} style={{'--c': CHIP_COLORS[(seed + k + (i > 5 ? 1 : 0)) % CHIP_COLORS.length], bottom: `${i * 3}px`} as React.CSSProperties}/>)}</span>)}</span>;
+}
+
+// Oval felt table: wood rail, brass trim, leather chairs and one seat per player around the rail.
+export function PokerTable({seats, title, subtitle, total, totalLabel = 'In play', onSeat}: {seats: {id: string, name: string, index: number, amount: number, out?: boolean}[], title: string, subtitle?: string, total: number, totalLabel?: string, onSeat?: (id: string) => void}) {
+ const at = (i: number, rx: number, ry: number) => {const angle = (i / seats.length) * Math.PI * 2 - Math.PI / 2; return {angle, left: `${50 + Math.cos(angle) * rx}%`, top: `${50 + Math.sin(angle) * ry}%`};};
+ return <div className="felt-wrap"><div className="felt">
+  <div className="felt-grain" aria-hidden="true"/>
+  <svg className="felt-line" viewBox="0 0 100 46" preserveAspectRatio="none" aria-hidden="true"><ellipse cx="50" cy="23" rx="43" ry="17.5" fill="none" stroke="rgba(228,184,98,.35)" strokeWidth=".25"/><ellipse cx="50" cy="23" rx="42" ry="16.6" fill="none" stroke="rgba(228,184,98,.15)" strokeWidth=".15"/></svg>
+  <div className="felt-center">
+   <span className="felt-mark"><Spade size={24} fill="currentColor"/></span>
+   <b>{title}</b>{subtitle && <small>{subtitle}</small>}
+   <div className="felt-cards" aria-hidden="true">{CARDS.map(([r, s], i) => <span key={r + s} className={`card ${s === '♦' || s === '♥' ? 'red' : ''}`} style={{'--r': `${(i - 2) * 2.5}deg`} as React.CSSProperties}><b>{r}</b><i>{s}</i></span>)}</div>
+   <span className="felt-pot"><ChipStack amount={total} seed={1} className="pot-chips"/><small>{totalLabel}</small>{money(total)}</span>
+  </div>
+  {seats.map((p, i) => {const chair = at(i, 58, 66), seat = at(i, 47, 50), pile = at(i, 33, 34);
+   return <span key={p.id}>
+    <span className="chair" style={{left: chair.left, top: chair.top, '--a': `${chair.angle + Math.PI / 2}rad`} as React.CSSProperties} aria-hidden="true"/>
+    <span className="seat-chips" style={{left: pile.left, top: pile.top}}><ChipStack amount={p.amount} seed={i}/></span>
+    <button type="button" className={`seat ${p.out ? 'out' : ''}`} style={{left: seat.left, top: seat.top}} onClick={() => onSeat?.(p.id)}>
+     <Avatar name={p.name} index={p.index}/><span><b>{p.name}</b><em>{money(p.amount)}</em></span>
+    </button>
+   </span>;
+  })}
+  {seats.length > 0 && <span className="dealer" style={{left: `${50 + Math.cos(-Math.PI / 2 + 0.35) * 40}%`, top: `${50 + Math.sin(-Math.PI / 2 + 0.35) * 38}%`}} aria-hidden="true">D</span>}
+ </div></div>;
 }

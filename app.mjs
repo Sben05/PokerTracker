@@ -91,8 +91,8 @@ if(action==='undo-allocation'){const a=s?.adjustments.find(a=>a.id===button.data
 if(action==='split-variance'){if(!confirm('Allocate the unresolved variance equally among ALL recorded session players? This changes their entitlements.'))return;splitVariance(s,participants(s));toast('Variance allocated across players');}
 if(action==='bank-variance'){if(!confirm('Assign the unresolved discrepancy to the bank without changing player chip entitlements?'))return;splitVariance(s,participants(s),'bank');toast('Bank variance recorded');}
 if(action==='copy-settlements'){const list=simplify(s);const lines=list.map(e=>`${name(e.from)} → ${name(e.to)}: ${money(e.amount)} (${preferred(e.from,e.to)})`);navigator.clipboard?.writeText(`${s.title}\n${lines.join('\n')||'No outstanding debts.'}`).then(()=>toast('Payment plan copied')).catch(()=>toast('Clipboard unavailable; please select manually',true));}
-if(action==='export-json'){fileDownload('pokerbank-backup-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(data,null,2),'application/json');toast('Backup downloaded');}
-if(action==='export-session'){if(!s)throw Error('Choose a session first.');fileDownload('pokerbank-'+slug(s.title)+'.csv',exportCSV(s),'text/csv;charset=utf-8');toast('CSV exported for Excel');}
+if(action==='export-json'){fileDownload('openstax-poker-backup-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(data,null,2),'application/json');toast('Backup downloaded');}
+if(action==='export-session'){if(!s)throw Error('Choose a session first.');fileDownload('openstax-poker-'+slug(s.title)+'.csv',exportCSV(s),'text/csv;charset=utf-8');toast('CSV exported for Excel');}
 if(action==='import-json'){$('#import-file').click();}
 if(action==='reset'){if(!confirm('PERMANENTLY erase all locally stored poker data? Download a backup first.'))return;if(!confirm('Confirm that you want to delete ALL session history and players from this device.'))return;github.disconnect();data=makeStore();activeSessionId='';page='overview';modal='';toast('Local data erased');}
 });}

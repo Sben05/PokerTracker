@@ -1,5 +1,5 @@
 import {normalizePlayerEmail} from './notifications.mjs';
-import {makeStore, makeSession, createPlayer, cents, money, METHODS, BANK_ID, participants, playerStats, allocateVariance, splitVariance, validateImported} from './engine.mjs';
+import {makeStore, makeSession, createPlayer, cents, money, METHODS, BANK_ID, participants, playerStats, allocateVariance, splitVariance, validateImported, headOf} from './engine.mjs';
 import {outstandingDebts} from './analytics.mjs';
 export class CommandError extends Error {}
 const fail=message=>{throw new CommandError(message)};
@@ -12,6 +12,7 @@ export function applyCommand(original,command){
  const session=()=>data.sessions.find(s=>s.id===p.sessionId)||fail('This game no longer exists. Refresh and try again.');
  const player=pid=>data.players.find(x=>x.id===pid)||fail('Choose a player.');
  const open=s=>{if(s.status!=='open')fail('This game is closed. Reopen it before adding chips.');};
+ const setBanker=(s,pid,holder)=>{if(holder===pid)fail('A player can’t be their own banker.');if(headOf({bankers:s.bankers||{}},holder)===pid)fail('That would make a loop of bankers.');s.bankers={...(s.bankers||{}),[pid]:holder};};
  const entry=(s,type,n,fields)=>s.entries.push({id,type,amount:n,at,...fields});
  switch(command.type){
  case 'create-session':{
@@ -35,7 +36,27 @@ export function applyCommand(original,command){
   if(debts)fail(`${who.name} still owes ${money(debts.reduce((n,d)=>n+d.amount,0))} from ${[...new Set(debts.map(d=>d.game.title))].join(', ')}. Mark it paid on Settlements before they buy in.`);
   const deferred=s.mode==='decentralized';
   if(!deferred&&!METHODS.includes(p.method))fail('Choose a payment method.');
-  entry(s,'buyin',amount(p.amount),{playerId:p.playerId,status:deferred?'pending':p.received?'received':'pending',...(!deferred?{method:p.method}:{}),note:text(p.note)});break;
+  // Cash handed over at the start: another player holds it and settles for this player at the end.
+  const cashUp=p.cashUpfront===true||p.cashUpfront==='on';let heldBy='';
+  if(cashUp){
+   if(!deferred)fail('Cash held by another player is for pay-at-end games.');
+   heldBy=text(p.heldBy,100)||s.bankers?.[p.playerId]||'';
+   if(!heldBy)fail('Choose who is holding the cash.');
+   player(heldBy);if(heldBy===p.playerId)fail('Hand the cash to a different player.');
+   if(p.makeBanker===true||p.makeBanker==='on'){if(!s.bankers?.[p.playerId])setBanker(s,p.playerId,heldBy);}
+  }
+  entry(s,'buyin',amount(p.amount),cashUp?{playerId:p.playerId,status:'received',method:'Cash',heldBy,note:text(p.note)}:{playerId:p.playerId,status:deferred?'pending':p.received?'received':'pending',...(!deferred?{method:p.method}:{}),note:text(p.note)});break;
+ }
+ case 'set-banker':{
+  const s=session();player(p.playerId);const holder=text(p.holderId,100);
+  if(holder){player(holder);setBanker(s,p.playerId,holder);}else if(s.bankers)delete s.bankers[p.playerId];
+  break;
+ }
+ case 'set-cash-unit':{const s=session();s.cashUnit=amount(p.unit);if(s.cashUnit>1000000)fail('Choose a smaller bill size.');break;}
+ case 'set-prefs':{
+  const s=session();player(p.playerId);
+  s.prefs={...(s.prefs||{}),[p.playerId]:{cashOnly:p.cashOnly===true||p.cashOnly==='on',canBreak:p.canBreak===true||p.canBreak==='on',cash:p.cash===''||p.cash==null?0:amount(p.cash,true)}};
+  break;
  }
  case 'cashout':{
   const s=session();open(s);player(p.playerId);
@@ -77,6 +98,9 @@ export function applyCommand(original,command){
    const s=structuredClone(incoming);if(s.bankerId)s.bankerId=mapping.get(s.bankerId)||s.bankerId;
    for(const e of s.entries){if(e.playerId)e.playerId=mapping.get(e.playerId)||e.playerId;if(e.from&&e.from!==BANK_ID)e.from=mapping.get(e.from)||e.from;if(e.to&&e.to!==BANK_ID)e.to=mapping.get(e.to)||e.to;}
    for(const a of s.adjustments)a.playerId=mapping.get(a.playerId)||a.playerId;
+   for(const e of s.entries)if(e.heldBy)e.heldBy=mapping.get(e.heldBy)||e.heldBy;
+   const remap=m=>Object.fromEntries(Object.entries(m||{}).map(([k,v])=>[mapping.get(k)||k,typeof v==='string'?mapping.get(v)||v:v]));
+   if(s.bankers)s.bankers=remap(s.bankers);if(s.prefs)s.prefs=remap(s.prefs);
    data.sessions.push(s);
   }break;
  }
@@ -95,6 +119,7 @@ export function validateBackup(value){
    if(typeof e.id!=='string'||!e.id||entries.has(e.id))fail('Backup has duplicate or invalid entries.');entries.add(e.id);
    if(e.type==='transfer'){if(e.from===e.to||![e.from,e.to].every(pid=>pid===BANK_ID||ids.has(pid)))fail('Backup has an invalid transfer.');}
    else if(!ids.has(e.playerId))fail('Backup references an unknown player.');
+   if(e.heldBy&&!ids.has(e.heldBy))fail('Backup references an unknown cash holder.');
    if(e.type==='buyin'&&!['pending','received'].includes(e.status))fail('Backup has an invalid buy-in status.');
    if(e.type==='transfer'&&!['pending','paid'].includes(e.status))fail('Backup has an invalid payment status.');
   }

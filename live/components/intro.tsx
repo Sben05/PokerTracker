@@ -31,8 +31,8 @@ export function Intro({onDone}: {onDone: () => void}) {
    </div>)}
   </div>
   <div className="intro-mark">
-   <h1>Felt Club</h1>
-   <p>Poker OS</p>
+   <h1>OpenStax</h1>
+   <p>Poker</p>
   </div>
   <span className="intro-skip">Click to enter</span>
  </div>;

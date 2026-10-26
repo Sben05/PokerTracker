@@ -18,8 +18,10 @@ export function gameSummary(ledger,game,playerId){
  const lines=[`Hi ${name(playerId)},`,'',`Results from ${game.title}:`,'',`Bought in: ${money(p.bought)}`,`Cashed out: ${money(p.cashed+p.adjustment)}`,`Net: ${signedMoney(p.net)}`,''];
  if(pay.length)lines.push('You need to send:',...pay.map(t=>`  ${money(t.amount)} to ${name(t.to)}`),'');
  if(get.length)lines.push('You will receive:',...get.map(t=>`  ${money(t.amount)} from ${name(t.from)}`),'');
- if(!pay.length&&!get.length)lines.push('You are all square. Nothing to send or receive.','');
- lines.push(`Details: ${link(game)}`,'','Felt Club Poker OS');
+ const banker=game.bankers?.[playerId];
+ if(banker)lines.push(`${name(banker)} is settling for you, so there is nothing to send or receive directly.`,'');
+ else if(!pay.length&&!get.length)lines.push('You are all square. Nothing to send or receive.','');
+ lines.push(`Details: ${link(game)}`,'','OpenStax Poker');
  const subject=`${game.title}: ${owe?`you owe ${money(owe)}`:due?`you're owed ${money(due)}`:'all square'}`;
  return {playerId,subject,body:lines.join('\n'),gameId:game.id};
 }
@@ -44,7 +46,7 @@ export function paymentReminders(ledger){
  const name=nameIn(ledger),owed=outstandingDebts(ledger);
  return [...owed].map(([playerId,items])=>{
   const total=items.reduce((n,t)=>n+t.amount,0);
-  const lines=[`Hi ${name(playerId)},`,'','Quick reminder, you still need to send:',...items.map(t=>`  ${money(t.amount)} to ${name(t.to)} (${t.game.title})`),'',`Already paid? Ask the organizer to mark it paid so these reminders stop.`,'',`Details: ${SITE}/settlements`,'','Felt Club Poker OS'];
+  const lines=[`Hi ${name(playerId)},`,'','Quick reminder, you still need to send:',...items.map(t=>`  ${money(t.amount)} to ${name(t.to)} (${t.game.title})`),'',`Already paid? Ask the organizer to mark it paid so these reminders stop.`,'',`Details: ${SITE}/settlements`,'','OpenStax Poker'];
   return {playerId,subject:`Reminder: you owe ${money(total)}`,body:lines.join('\n')};
  });
 }

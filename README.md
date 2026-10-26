@@ -1,8 +1,8 @@
-# Felt Club | Poker OS
+# OpenStax Poker
 
 Open the app: https://pokertracker-cfb7b.web.app
 
-A classic casino ledger with public viewing, passcode-protected editing, automatic saves, and live updates between devices. Firebase Hosting serves the app; Firestore stores the ledger; Firebase Authentication and Firestore Security Rules protect edits.
+A poker ledger with public viewing, passcode-protected editing, automatic saves, and live updates between devices. Firebase Hosting serves the app; Firestore stores the ledger; Firebase Authentication and Firestore Security Rules protect edits.
 
 The shared ledger is stored in the database, never in this source repository. Decentralized games record buy-ins as chips and settle net results at the end. Settings includes complete JSON backups and per-session CSV exports. Imports preserve existing history.
 

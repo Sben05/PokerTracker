@@ -1,9 +1,9 @@
-import {BANK_ID, balances, participants, playerStats, stats, simplify} from './engine.mjs';
+import {BANK_ID, balances, payBalances, participants, playerStats, stats, simplify, planSteps} from './engine.mjs';
 // Keep obligations per game: a win in another game does not confirm a payment here.
 export function outstandingPayments(s) {
   if (s.status !== 'closed' && s.mode === 'decentralized') return [];
   if (s.status === 'closed' && stats(s).unresolved !== 0) return [];
-  return [...balances(s)].filter(([, amount]) => amount < 0).map(([id, amount]) => {
+  return [...payBalances(s)].filter(([, amount]) => amount < 0).map(([id, amount]) => {
     const pending = s.entries.filter(e => !e.voidedAt && e.type === 'transfer' && e.status === 'pending' && e.from === id).reduce((sum, e) => sum + e.amount, 0);
     return {id, amount: -amount, pending};
   });
@@ -43,17 +43,7 @@ function streakOf(nets) {
   return n * last;
 }
 export function settlementSteps(s) {
-  const remaining = balances(s, {includePending: true});
-  const debtors = [...remaining].filter(([, n]) => n < 0).map(([id, n]) => ({id, remaining: -n})).sort((a, b) => b.remaining - a.remaining);
-  const creditors = [...remaining].filter(([, n]) => n > 0).map(([id, n]) => ({id, remaining: n})).sort((a, b) => b.remaining - a.remaining);
-  const steps = []; let i = 0, j = 0;
-  while (i < debtors.length && j < creditors.length) {
-    const d = debtors[i], c = creditors[j], amount = Math.min(d.remaining, c.remaining);
-    steps.push({from: d.id, to: c.id, amount, owedBefore: d.remaining, dueBefore: c.remaining, owedAfter: d.remaining - amount, dueAfter: c.remaining - amount});
-    d.remaining -= amount; c.remaining -= amount;
-    if (!d.remaining) i++; if (!c.remaining) j++;
-  }
-  return steps;
+  return planSteps(s);
 }
 export function balanceCalculation(s, id) {
   const p = playerStats(s, id);

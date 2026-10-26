@@ -1,4 +1,4 @@
-/* PokerBank accounting engine. Every monetary value is an integer number of cents. */
+/* OpenStax Poker accounting engine. Every monetary value is an integer number of cents. */
 export const METHODS = ['Cash', 'Coins', 'Zelle', 'Venmo', 'Other'];
 export const BANK_ID = '__bank__';
 export const uid = () => (globalThis.crypto?.randomUUID?.() || `id_${Date.now()}_${Math.random().toString(36).slice(2)}`);
@@ -91,7 +91,7 @@ export function splitVariance(s,players,mode='equal') {
   ids.forEach((playerId,i)=>s.adjustments.push({id:uid(),playerId,amount:sign*(base+(i<extra?1:0)),at:new Date().toISOString(),note:'Equal share of session variance'}));
 }
 export function validateImported(v) {
-  if(!v||v.version!==1||!Array.isArray(v.players)||!Array.isArray(v.sessions)) throw Error('Invalid PokerBank backup (expected version 1).');
+  if(!v||v.version!==1||!Array.isArray(v.players)||!Array.isArray(v.sessions)) throw Error('Invalid OpenStax Poker backup (expected version 1).');
   if(v.players.length>5000||v.sessions.length>10000) throw Error('Backup too large.');
   for(const p of v.players){if(typeof p.id!=='string'||typeof p.name!=='string'||p.name.length>120||!Array.isArray(p.methods)) throw Error('Invalid player in backup.');}
   for(const s of v.sessions){if(!Array.isArray(s.entries)||!Array.isArray(s.adjustments)||s.entries.length>100000) throw Error('Invalid session in backup.');if(s.mode!==undefined&&!['centralized','decentralized'].includes(s.mode))throw Error('Invalid banking mode.');if(s.bankerId!==undefined&&s.bankerId!==null&&typeof s.bankerId!=='string')throw Error('Invalid banker.');for(const a of s.adjustments){if(!Number.isSafeInteger(a.amount)||Math.abs(a.amount)>1000000000||typeof a.playerId!=='string')throw Error('Invalid discrepancy allocation.');}for(const e of s.entries){if(!['buyin','cashout','transfer'].includes(e.type)||!Number.isSafeInteger(e.amount)||e.amount<0||e.amount>1000000000)throw Error('Invalid money entry.');}}

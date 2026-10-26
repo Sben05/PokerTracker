@@ -1,8 +1,8 @@
-# Felt Club | Poker OS
+# OpenStax Poker
 
 Production: https://pokertracker-cfb7b.web.app
 
-Felt Club uses Firebase Hosting, Firestore, and Firebase Authentication. Anyone can view the ledger. The shared table editor is authenticated by Firebase; Firestore Security Rules restrict all writes to its designated UID. The passcode is not included in source or client bundles.
+OpenStax Poker uses Firebase Hosting, Firestore, and Firebase Authentication. Anyone can view the ledger. The shared table editor is authenticated by Firebase; Firestore Security Rules restrict all writes to its designated UID. The passcode is not included in source or client bundles.
 
 Each action is stored in a local retry queue before being committed in a Firestore transaction. Immutable operation IDs prevent retries from duplicating entries. Firestore subscriptions deliver live updates to other devices. Decentralized games record chips first and collect payment methods at final settlement.
 
@@ -25,7 +25,7 @@ The home page summarizes all sessions, buy-in volume, results from completed gam
 
 Each session has a permanent URL at `/games/:id`, with `/activity` and `/settlements` tabs. `/games` lists every session. Sharing copies the current page URL. Firebase Hosting’s existing SPA rewrite supports opening or refreshing these links directly; the route selects the game from the shared ledger rather than browser-local selection state.
 
-Settlements show per-player arithmetic, confirmed payments, and the exact sequence used to simplify transfers. All money is calculated in integer cents. The atmospheric video uses a poster fallback and is hidden for reduced-motion preferences.
+Settlements show per-player arithmetic, confirmed payments, and the exact sequence used to simplify transfers. All money is calculated in integer cents.
 
 Run routing, analytics, and accounting checks from the repository root with `node --test live/tests/*.test.mjs tests/*.test.mjs`.
 
@@ -50,16 +50,18 @@ The sender also supports Mailjet Free, currently 6,000 emails/month and 200/day 
 - `MAILJET_SECRET_KEY`: your secret key
 - `MAILJET_SENDER_EMAIL`: your verified sender email
 
-The From name is Felt Club. The API key and secret stay in Script properties and are never stored in Firestore or bundled in the website. Both provider options use the same authorized worker, queue, opt-out checks, and Firebase-authenticated immediate request. Run setup again and publish a new Apps Script deployment version after updating an existing worker. An existing Gmail worker is not silently migrated.
+The From name is OpenStax Poker. The API key and secret stay in Script properties and are never stored in Firestore or bundled in the website. Both provider options use the same authorized worker, queue, opt-out checks, and Firebase-authenticated immediate request. Run setup again and publish a new Apps Script deployment version after updating an existing worker. An existing Gmail worker is not silently migrated.
 
 Mailjet attempts reserve a local daily/monthly budget before calling the provider. The worker never attempts more than 200 messages per UTC day or 6,000 per UTC month. Failed requests consume this local allowance conservatively. A provider quota/rate-limit response returns the message to pending. No code changes subscription plans or purchases credits. Keep the provider on its Free plan and do not add billing details. These counters apply to this worker; messages sent elsewhere from the same Mailjet account also consume the provider allowance. Do not clear the budget property or run multiple independent worker projects against the same allowance.
 
 Official references: [Mailjet free limits](https://documentation.mailjet.com/hc/en-us/articles/19154256993051-Understanding-Mailjet-Free-Plan-Limits), [Mailjet API](https://dev.mailjet.com/docs/email-api/send-api-v31/send-basic-email).
 
-The Felt Club rebrand preserves existing storage keys, Firebase project identity, URLs, and saved game data. New emails and exported filenames use the new brand.
+The OpenStax Poker rename preserves existing storage keys, cookies, the sender mailbox, Firebase project identity, URLs, and saved game data. New emails and exported filenames use the new name.
 
-## Card-room visual design
+## Interface
 
-The current interface uses a generated photographic private card room with walnut paneling, green felt, leather chairs, and brass lamps. The optimized background is `public/felt-club-room.jpg`. It is served through Vite's explicit public directory and copied into the Firebase output. CSS adds a slow 44-second camera drift. The header pause button remembers its setting locally, and the interface stops all ambient animation when the user requests reduced motion. The original atmosphere/video assets remain available for rollback.
+The interface is a dark private card room: a slowly drifting table video (`public/felt-club-table.mp4`, poster `felt-club-table.jpg`) behind gold-trimmed panels, a top navigation bar, stat cards, and dense tables with player avatars and status pills. A short dealt-cards intro plays on load (click or any key skips it). Reduced-motion preferences skip the intro and pause the video; the header play/pause button remembers the choice locally. All styles live in `app/globals.css`.
 
-Asset generation used the built-in image tool. Prompt brief: a photorealistic private high-rise poker room at night, warm skyline lights, walnut paneling, oxblood leather, green felt, brass lamps and poker chips, composed with calm space for an interface and no embedded text or UI.
+## Cash deposits, personal bankers, and cash-aware payouts
+
+In a pay-at-end game, a buy-in can be marked as cash handed to another player ("held by"). That player owes the cash onward, so the depositor owes nothing extra if they lose. A player can also have a personal banker, who settles for them: only the banker appears in the payment plan. Per game, a player can be marked cash only (paid only in cash), able to make change, and given an amount of cash on hand. The plan then pays cash-only players first from whoever holds cash, moves cash in whole $5 bills unless someone can make change, and flags any cash-only payout it cannot cover. Without any of these set, the plan is the plain largest-debt-to-largest-credit match. Settled payments stay listed with a check mark and can be undone.
