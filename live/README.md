@@ -60,7 +60,7 @@ The OpenStax Poker rename preserves existing storage keys, cookies, the sender m
 
 ## Interface
 
-The interface is a dark private card room: a slowly drifting table video (`public/room-loop.mp4`, poster `room.jpg`), a photographed table (`table.png`) with players placed over its chairs behind gold-trimmed panels, a top navigation bar, stat cards, and dense tables with player avatars and status pills. A short dealt-cards intro plays on load (click or any key skips it). Reduced-motion preferences skip the intro and pause the video; the header play/pause button remembers the choice locally. All styles live in `app/globals.css`.
+A dark card room. The Dashboard opens straight onto the table scene (`public/table-scene.jpg`) with the recorded players seated on its rail and a game information strip beneath it, Operations and a Settlement Snapshot beside it, and a buy-ins chart, current leader and recent games below. With no open game it shows the most recent one. The Dashboard and Live Session scale to the window from a 1672x941 design canvas and fit on one screen on desktop; phones get a single column. The background is `public/room-loop.mp4` with `room.jpg` as its still, cropped and blurred so it stays behind the panels; the header play/pause switch was moved to Settings. The intro animation plays on load (click or any key skips it) and is skipped for reduced-motion preferences. All styles live in `app/globals.css`.
 
 ## Cash deposits, personal bankers, and cash-aware payouts
 

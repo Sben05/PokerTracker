@@ -4,7 +4,8 @@ import {useEffect,useRef,useState} from 'react';
 import {Users,FileText,Coins,Landmark,CheckCircle2,Play,CircleCheck,Hourglass,Layers,Headphones,Settings as SettingsIcon,Share2,LockKeyhole,LockKeyholeOpen,CloudOff,LoaderCircle,Spade,Search,Download,Upload,Plus,X,Check,RotateCcw,BellRing,Clock,LogOut,NotebookPen,ArrowRight,Copy,Mail,AlertCircle,Trophy,Flag,UserPlus,Pause} from 'lucide-react';
 import {EmailSettings} from '../components/email-settings';
 import {Intro,shouldPlayIntro} from '../components/intro';
-import {Avatar,Who,Method,Pill,StatCard,PokerTable} from '../components/player-visuals';
+import {Avatar,Who,Method,Pill,PokerTable} from '../components/player-visuals';
+import {BuyinChart,LeaderCard} from '../components/dashboard-parts';
 import {playerProfiles,outstandingDebts,ledgerAnalytics,gameDate} from '../lib/analytics.mjs';
 import {deliverQueuedEmails} from '../lib/email-delivery';
 import {usePlayerContacts} from '../lib/use-player-contacts';
@@ -108,7 +109,6 @@ export default function OpenStaxPoker(){
  const gameDebt=(g:any)=>unpaidRows.filter((t:any)=>t.game.id===g.id).reduce((n:number,t:any)=>n+t.amount,0);
  const gameStatus=(g:any)=>g.status==='open'?<Pill kind="open">Open</Pill>:stats(g).unresolved||gameDebt(g)?<Pill kind="unsettled">Unsettled</Pill>:<Pill kind="closed">Closed</Pill>;
  const reviewGames=data.sessions.filter((g:any)=>g.status==='closed'&&stats(g).unresolved!==0),chipDifference=reviewGames.reduce((n:number,g:any)=>n+Math.abs(stats(g).unresolved),0);
- const differenceCard=<StatCard icon={Landmark} label="Chip Difference" value={money(chipDifference)} tone={chipDifference?'down':'up'} sub={reviewGames.length?`${reviewGames.length} game${reviewGames.length===1?'':'s'} to review`:'All counts balance'} onClick={reviewGames.length?()=>selectGame(reviewGames[0].id,'settlements'):undefined}/>;
 
  function Register({entries,full=true}:{entries:any[],full?:boolean}){return <div className="scroll"><table><thead><tr><th>Time</th><th>Player</th><th>Type</th><th className="num">Amount</th><th>Method</th><th>Status</th>{full&&<><th>Notes</th><th/></>}</tr></thead><tbody>{entries.length?entries.map(e=>{
   const isBuy=e.type==='buyin',deferred=isBuy&&s?.mode==='decentralized'&&e.status!=='received';
@@ -129,7 +129,7 @@ export default function OpenStaxPoker(){
  }
 
  function GameBar(){return <div className="game-bar">
-  <div className="game-chip">{s.status==='open'&&<span className="live-chip" style={{padding:0,border:0,background:'none'}}><i className="dot"/></span>}<div><h1>{s.title}</h1><small>{!hasDate(s.title)&&<>{formatDate(gameDate(s))} · </>}{s.mode==='centralized'?'Banker collects':'Pay at end'} · {duration(s)}</small></div>{gameStatus(s)}</div>
+  <div className="game-chip">{s.status==='open'&&<span className="live-chip" style={{padding:0,border:0,background:'none'}}><i className="dot"/></span>}<div><h1>{s.title}</h1><small>{!hasDate(s.title)&&<>{formatDate(gameDate(s))} · </>}<span className="gap-pair"><span>{s.mode==='centralized'?'Banker collects':'Pay at end'}</span><span>{duration(s)}</span></span></small></div>{gameStatus(s)}</div>
   <nav className="segmented" aria-label="Game navigation">{[{id:'game',label:'Table'},{id:'activity',label:'Activity'},{id:'settlements',label:'Settlements'}].map(tab=><a key={tab.id} className={page===tab.id?'active':''} {...link(tab.id as Page,s.id)}>{tab.label}</a>)}</nav>
   <span className="spacer"/>
   <label className="filter">Game<select aria-label="Choose game" value={s.id} onChange={e=>selectGame(e.target.value,page as any)}>{[...data.sessions].reverse().map((x:any)=><option key={x.id} value={x.id}>{x.title}</option>)}</select></label>
@@ -138,50 +138,52 @@ export default function OpenStaxPoker(){
   {s.status==='open'?<button className="btn settle" onClick={()=>open('close')}><Flag size={16}/>Close game</button>:<button className="btn" onClick={()=>act('reopen-session',{sessionId:s.id},'Game reopened.')}><RotateCcw size={16}/>Reopen</button>}
  </div>;}
 
- function DashboardPage(){
-  const a=ledgerAnalytics(data),recent=[...data.sessions].reverse(),openGames=recent.filter((g:any)=>g.status==='open');
-  const events=data.sessions.flatMap((g:any)=>[...(g.createdAt?[{at:g.createdAt,kind:'start',game:g}]:[]),...(g.endedAt?[{at:g.endedAt,kind:'close',game:g}]:[]),...g.entries.filter((e:any)=>!e.voidedAt&&e.at&&(e.type!=='transfer'||e.status==='paid')).map((e:any)=>({at:e.at,kind:e.type,e,game:g}))]).sort((x:any,y:any)=>y.at.localeCompare(x.at)).slice(0,30);
-  const live=liveGame,liveIds=live?participants(live):[];
-  const when=(at:string)=>sameDay(at)?formatTime(at):`${new Date(at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}, ${formatTime(at)}`;
-  const settleAll=()=>{if(!unpaidRows.length||!confirm(`Mark all ${unpaidRows.length} payments (${money(unpaidTotal)}) as paid?`))return;for(const t of unpaidRows)settle(t.game.id,t.from,t.to,t.amount,t.method);};
-  const showMethod=unpaidRows.some((t:any)=>t.method);
+function DashboardPage(){
+  const recent=[...data.sessions].reverse(),tg=liveGame||data.sessions.at(-1)||null,tgIds=tg?participants(tg):[],tgStats=tg?stats(tg):null;
+  const profiles=playerProfiles(data),settleAll=()=>{if(!unpaidRows.length||!confirm(`Mark all ${unpaidRows.length} payments (${money(unpaidTotal)}) as paid?`))return;for(const t of unpaidRows)settle(t.game.id,t.from,t.to,t.amount,t.method);};
+  const seats=tgIds.map((id:any)=>{const p=playerStats(tg,id);return {id,name:person(id),index:indexOf(id),out:!p.open,text:p.open?money(p.bought):signedMoney(p.net),tone:(p.open?'':p.net>0?'up':p.net<0?'down':'') as ''|'up'|'down'};});
   return <div className="dash">
-  <div className="stats">
-   <StatCard icon={Users} label="Open Games" value={openGames.length} sub={`${a.completed} closed · ${data.sessions.length} total`} onClick={()=>navigate('history')}/>
-   <StatCard icon={FileText} label="Unpaid Settlements" value={unpaidRows.length} sub={`${money(unpaidTotal)} total`} onClick={()=>navigate('owed')} view/>
-   <StatCard icon={Coins} label="Outstanding" value={money(unpaidTotal)} sub={`Across ${debtors.length} player${debtors.length===1?'':'s'}`} onClick={()=>navigate('owed')} view/>
-   {differenceCard}
-  </div>
-  <div className="grid-main">
-   <section className="box"><div className="box-title"><h2>Current Table{live&&<><Pill kind="playing">Live</Pill><span className="title-meta">{live.title}<i/>{live.mode==='centralized'?'Banker collects':'Pay at end'}</span></>}</h2><div className="tools">{live?<><span className="meta"><Clock size={14}/>{duration(live)}</span><button className="btn small" onClick={()=>selectGame(live.id)}><SettingsIcon size={15}/>Manage Game</button></>:<button className="btn gold small" onClick={()=>open('session')}><Plus size={15}/>New game</button>}</div></div>
-    <PokerTable seats={liveIds.map((id:any)=>{const p=playerStats(live,id);return {id,name:person(id),index:indexOf(id),amount:p.open?p.bought:p.cashed,out:!p.open};})} title={live?live.title:'No game running'} subtitle={live?undefined:'Start a game to seat players'} total={live?stats(live).totalIn-stats(live).adjusted:0} totalLabel="In play" onSeat={id=>live&&open('buyin',{playerId:id})}/>
+  <div className="dash-top">
+   <section className="box table-panel"><div className="box-title"><h2>{tg?.status==='open'?'Current Table':'Last Table'}</h2>{tg&&<span className="meta">{formatDate(gameDate(tg))}</span>}</div>
+    <PokerTable seats={seats} label={tg?`${tg.title}, ${tgIds.length} players`:'No games yet'} onSeat={id=>tg?.status==='open'&&open('buyin',{playerId:id})}>{!tg&&<button className="btn gold big" onClick={()=>open('session')}><Plus size={18}/>Start New Game</button>}</PokerTable>
+    {tg&&tgStats&&<div className="game-strip">
+     <div className="strip-field wide"><small>Game</small><b>{tg.title}</b></div>
+     <div className="strip-field"><small>Players</small><b>{tgIds.length}</b></div>
+     <div className="strip-field"><small>Type</small><b>{tg.mode==='centralized'?'Banker collects':'Pay at end'}</b></div>
+     <div className="strip-field"><small>Buy-ins</small><b className="amt">{money(tgStats.totalIn)}</b></div>
+     <div className="strip-field"><small>Cash-outs</small><b className="amt">{money(tgStats.totalOut)}</b></div>
+     <div className="strip-field"><small>Status</small>{gameStatus(tg)}</div>
+     <button className="btn gold big" onClick={()=>selectGame(tg.id)}>{tg.status==='open'?'Open Game':'View Last Game'}</button>
+    </div>}
    </section>
-   <section className="box"><div className="box-title"><h2>Settlement Queue{unpaidRows.length>0&&<span className="count-pill">{unpaidRows.length} Unpaid</span>}</h2><a className="link" {...link('owed')}>View All <ArrowRight size={15}/></a></div>
-    <div className="scroll"><table><thead><tr><th>From</th><th>To</th><th className="num">Amount</th>{showMethod&&<th>Method</th>}<th>Status</th><th>Action</th></tr></thead><tbody>{unpaidRows.length?unpaidRows.map((t:any)=><tr key={`${t.game.id}-${t.from}-${t.to}-${t.method||''}`}><td>{who(t.from)}</td><td>{who(t.to)}</td><td className="num amt">{money(t.amount)}</td>{showMethod&&<td>{t.method?<Method method={t.method}/>:<span className="muted">Any</span>}</td>}<td><Pill kind="unpaid">Unpaid</Pill></td><td className="act"><button className="btn small settle" onClick={()=>settle(t.game.id,t.from,t.to,t.amount,t.method)}>Settle</button></td></tr>):<tr><td className="empty" colSpan={6}>Nobody owes anything.</td></tr>}</tbody></table></div>
-    <div className="box-foot"><span className="total"><Coins size={28}/><span><small>Total Outstanding</small><strong>{money(unpaidTotal)}</strong><em>{unpaidRows.length} settlement{unpaidRows.length===1?'':'s'}</em></span></span><button className="btn green" disabled={!unpaidRows.length} onClick={settleAll}>Settle All</button></div>
-   </section>
+   <div className="side">
+    <section className="box ops"><div className="box-title"><h2>Operations</h2></div><div className="ops-grid">
+     <button className="op-btn" title="Shortcut: N" onClick={()=>open('session')}><Plus size={22}/>Start New Game</button>
+     <button className="op-btn" onClick={()=>open('transfer')}><Coins size={22}/>Record Settlement</button>
+     <button className="op-btn" onClick={()=>navigate('history')}><Layers size={22}/>View All Games</button>
+     <button className="op-btn" onClick={()=>navigate('players')}><Users size={22}/>Manage Players</button>
+    </div></section>
+    <section className="box snapshot"><div className="box-title"><h2>Settlement Snapshot</h2><a className="link" {...link('owed')}>View All <ArrowRight size={15}/></a></div>
+     <div className="snap-total"><span><strong>{money(unpaidTotal)}</strong><small>Outstanding</small></span><span><b>{unpaidRows.length}</b><small>{unpaidRows.length===1?'payment':'payments'}</small></span>{unpaidRows.length>1&&<button className="btn small settle" onClick={settleAll}>Settle All</button>}</div>
+     {reviewGames.length>0&&<a className="snap-warn" {...link('settlements',reviewGames[0].id)}><AlertCircle size={15}/>Chip counts are off in {reviewGames.length} game{reviewGames.length===1?'':'s'}</a>}
+     <div className="scroll"><table><thead><tr><th>From</th><th>To</th><th className="num">Amount</th><th/></tr></thead><tbody>{unpaidRows.length?unpaidRows.map((t:any)=><tr key={`${t.game.id}-${t.from}-${t.to}-${t.method||''}`}><td>{who(t.from)}</td><td>{who(t.to)}</td><td className="num amt">{money(t.amount)}</td><td className="act"><button className="btn small settle" onClick={()=>settle(t.game.id,t.from,t.to,t.amount,t.method)}>Settle</button></td></tr>):<tr><td className="empty" colSpan={4}>Nobody owes anything.</td></tr>}</tbody></table></div>
+    </section>
+   </div>
   </div>
-  <div className="grid-main">
-   <section className="box"><div className="box-title"><h2>Recent Games</h2><a className="link" {...link('history')}>View All <ArrowRight size={15}/></a></div><div className="scroll"><table><thead><tr><th>Date</th><th>Game</th><th>Duration</th><th className="num">Players</th><th className="num">Buy-ins</th><th className="num">Cash-outs</th><th>Status</th></tr></thead><tbody>
-    {recent.length?recent.map((g:any)=>{const t=stats(g);return <tr key={g.id} className="clickable" onClick={()=>selectGame(g.id)}><td>{formatDate(gameDate(g))}</td><td>{g.title}</td><td>{duration(g)}</td><td className="num">{participants(g).length}</td><td className="num">{money(t.totalIn)}</td><td className="num">{money(t.totalOut)}</td><td>{gameStatus(g)}</td></tr>;}):<tr><td className="empty" colSpan={7}>No games yet.</td></tr>}
-   </tbody></table></div></section>
-   <section className="box"><div className="box-title"><h2>Recent Activity</h2>{s&&<a className="link" {...link('activity',s.id)}>View All <ArrowRight size={15}/></a>}</div><div className="scroll"><table><thead><tr><th>Time</th><th>Event</th><th>Details</th></tr></thead><tbody>
-    {events.length?events.map((v:any,i:number)=><tr key={i}><td className="muted">{when(v.at)}</td><td>{v.kind==='start'?<span className="event"><Play size={15} fill="currentColor"/>Game started</span>:v.kind==='close'?<span className="event close"><Flag size={15}/>Game closed</span>:v.kind==='buyin'?<span className="event"><Coins size={15}/>Buy-in recorded</span>:v.kind==='cashout'?<span className="event close"><LogOut size={15}/>Cash-out recorded</span>:<span className="event pay"><CheckCircle2 size={15}/>Settlement recorded</span>}</td><td>{v.kind==='start'||v.kind==='close'?v.game.title:v.kind==='transfer'?<>{person(v.e.from)} → {person(v.e.to)} <span className="positive">{money(v.e.amount)}</span>{v.e.method&&<span className="muted"> ({v.e.method})</span>}</>:<>{person(v.e.playerId)} <span className="amt">{money(v.e.amount)}</span></>}</td></tr>):<tr><td className="empty" colSpan={3}>Nothing recorded yet.</td></tr>}
+  <div className="dash-bottom">
+   <BuyinChart games={data.sessions}/>
+   <LeaderCard profiles={profiles} indexOf={indexOf}/>
+   <section className="box"><div className="box-title"><h2>Recent Games</h2><a className="link" {...link('history')}>View All <ArrowRight size={15}/></a></div><div className="scroll"><table><thead><tr><th>Date</th><th>Game</th><th className="num">Players</th><th className="num">Buy-ins</th><th>Status</th></tr></thead><tbody>
+    {recent.length?recent.map((g:any)=><tr key={g.id} className="clickable" onClick={()=>selectGame(g.id)}><td>{formatDate(gameDate(g))}</td><td>{g.title}</td><td className="num">{participants(g).length}</td><td className="num">{money(stats(g).totalIn)}</td><td>{gameStatus(g)}</td></tr>):<tr><td className="empty" colSpan={5}>No games yet.</td></tr>}
    </tbody></table></div></section>
   </div></div>;
  }
 
- function GamesPage(){
-  const all=[...data.sessions].map((g:any,i:number)=>({g,n:i+1})).reverse(),openCount=all.filter(x=>x.g.status==='open').length,unsettled=all.filter(x=>x.g.status==='closed'&&(stats(x.g).unresolved||gameDebt(x.g))).length;
+  function GamesPage(){
+  const all=[...data.sessions].map((g:any,i:number)=>({g,n:i+1})).reverse();
   const rows=all.filter(({g})=>(filter==='all'||(filter==='open'?g.status==='open':filter==='unsettled'?g.status==='closed'&&(stats(g).unresolved||gameDebt(g)):g.status==='closed'&&!stats(g).unresolved&&!gameDebt(g)))&&g.title.toLowerCase().includes(query.toLowerCase()));
   const picked=all.find(x=>x.g.id===pickedGame)||rows[0];
   return <>
-  <div className="stats">
-   <StatCard icon={Layers} label="All Games" value={all.length} onClick={()=>setFilter('all')}/>
-   <StatCard icon={Play} label="Open Games" value={openCount} onClick={()=>setFilter('open')}/>
-   <StatCard icon={CircleCheck} label="Closed Games" value={all.length-openCount-unsettled} onClick={()=>setFilter('closed')}/>
-   <StatCard icon={Hourglass} label="Unsettled Games" value={unsettled} onClick={()=>setFilter('unsettled')}/>
-  </div>
   <section className="box"><div className="box-title big"><h2>All Games</h2><div className="tools">
    <label className="filter">Status<select value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">All</option><option value="open">Open</option><option value="closed">Closed</option><option value="unsettled">Unsettled</option></select></label>
    <label className="search-field"><Search size={16}/><input aria-label="Search games" placeholder="Search games…" value={query} onChange={e=>setQuery(e.target.value)}/></label>
@@ -200,7 +202,7 @@ export default function OpenStaxPoker(){
   const cashOptions=cashier.type==='buyin'?data.players:data.players.filter((p:any)=>ids.includes(p.id)&&playerStats(s,p.id).open);
   return <><GameBar/>
   <div className="grid-side live-grid"><div className="stack">
-   <PokerTable seats={ids.map((id:any)=>{const p=playerStats(s,id);return {id,name:person(id),index:indexOf(id),amount:p.open?p.bought:p.cashed,out:!p.open};})} title={s.title} subtitle={`${ids.length} players · ${s.mode==='centralized'?'Banker collects':'Pay at end'}`} total={s.status==='closed'?st!.totalOut:st!.totalIn-st!.adjusted} totalLabel={s.status==='closed'?'Cashed out':'In play'} onSeat={id=>s.status==='open'&&setCashier({...cashier,playerId:id,type:playerStats(s,id).open?cashier.type:'buyin'})}/>
+   <section className="box table-panel"><PokerTable seats={ids.map((id:any)=>{const p=playerStats(s,id);return {id,name:person(id),index:indexOf(id),out:!p.open,text:p.open?money(p.bought):signedMoney(p.net),tone:p.open?'':p.net>0?'up':p.net<0?'down':''};})} label={`${s.title}, ${ids.length} players`} onSeat={id=>s.status==='open'&&setCashier({...cashier,playerId:id,type:playerStats(s,id).open?cashier.type:'buyin'})}/></section>
    <section className="box register"><div className="box-title"><h2>Transaction Register</h2><div className="tools">
     <label className="filter">Player<select value={query} onChange={e=>setQuery(e.target.value)}><option value="">All</option>{ids.map((id:any)=><option key={id} value={id}>{person(id)}</option>)}</select></label>
     <label className="filter">Type<select value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">All</option><option value="buyin">Buy-ins</option><option value="cashout">Cash-outs</option><option value="transfer">Payments</option></select></label>
@@ -262,18 +264,11 @@ export default function OpenStaxPoker(){
   const rows=statusFilter==='paid'?[]:unpaidRows.filter((t:any)=>gameFilter==='all'||t.game.id===gameFilter),games=[...data.sessions].reverse() as any[];
   const doneRows=(statusFilter==='unpaid'?[]:data.sessions.filter((g:any)=>gameFilter==='all'||g.id===gameFilter).flatMap((g:any)=>g.entries.filter((e:any)=>e.type==='transfer'&&e.status==='paid'&&!e.voidedAt).map((e:any)=>({e,g})))).sort((x:any,y:any)=>(y.e.confirmedAt||y.e.at||'').localeCompare(x.e.confirmedAt||x.e.at||'')).slice(0,40);
   const paid=data.sessions.flatMap((g:any)=>g.entries.filter((e:any)=>e.type==='transfer'&&!e.voidedAt).map((e:any)=>({e,g}))).sort((x:any,y:any)=>(y.e.at||'').localeCompare(x.e.at||''));
-  const paidToday=paid.filter(({e}:any)=>e.status==='paid'&&sameDay(e.confirmedAt||e.at));
   const history=paid.filter(({e,g}:any)=>(historyQuery===''||[e.from,e.to].some((id:string)=>person(id).toLowerCase().includes(historyQuery.toLowerCase())))&&(methodFilter==='all'||e.method===methodFilter)&&(filter==='all'||g.id===filter));
   const summary=data.sessions.find((g:any)=>g.id===summaryId)||[...data.sessions].reverse().find((g:any)=>g.status==='closed')||data.sessions.at(-1);
   return <>
-  <div className="stats">
-   <StatCard icon={Users} label="Unpaid" value={unpaidRows.length} sub={`${money(unpaidTotal)} total`}/>
-   <StatCard icon={Coins} label="Outstanding" value={money(unpaidTotal)} sub={`Across ${debtors.length} player${debtors.length===1?'':'s'}`}/>
-   <StatCard icon={CircleCheck} label="Paid Today" value={money(paidToday.reduce((n:number,{e}:any)=>n+e.amount,0))} sub={`${paidToday.length} settlement${paidToday.length===1?'':'s'}`}/>
-   {differenceCard}
-  </div>
   <div className="grid-main">
-   <section className="box"><div className="box-title"><h2>Settlements{rows.length>0&&<span className="count-pill">{rows.length} Unpaid</span>}</h2><div className="tools"><label className="filter">Show<select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}><option value="all">All</option><option value="unpaid">Unpaid</option><option value="paid">Settled</option></select></label><label className="filter">Game<select value={gameFilter} onChange={e=>setGameFilter(e.target.value)}><option value="all">All Games</option>{games.map((g:any)=><option key={g.id} value={g.id}>{gameLabel(g)}</option>)}</select></label>{rows.length>0&&<button className="btn small" onClick={()=>remind([...new Set(rows.map((t:any)=>t.from))] as string[])}><BellRing size={14}/>Remind all</button>}</div></div>
+   <section className="box"><div className="box-title"><h2>Settlements{rows.length>0&&<><span className="count-pill">{rows.length} Unpaid</span><span className="title-amount">{money(rows.reduce((n:number,t:any)=>n+t.amount,0))}</span></>}</h2><div className="tools"><label className="filter">Show<select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}><option value="all">All</option><option value="unpaid">Unpaid</option><option value="paid">Settled</option></select></label><label className="filter">Game<select value={gameFilter} onChange={e=>setGameFilter(e.target.value)}><option value="all">All Games</option>{games.map((g:any)=><option key={g.id} value={g.id}>{gameLabel(g)}</option>)}</select></label>{rows.length>0&&<button className="btn small" onClick={()=>remind([...new Set(rows.map((t:any)=>t.from))] as string[])}><BellRing size={14}/>Remind all</button>}</div></div>
     <div className="scroll"><table><thead><tr><th>From</th><th>To</th><th>Game</th><th className="num">Amount</th><th>Status</th><th>Action</th></tr></thead><tbody>{rows.map((t:any)=><tr key={`${t.game.id}-${t.from}-${t.to}-${t.method||''}`}><td><span className="who">{who(t.from,false)}<ArrowRight className="arrow" size={15}/></span></td><td>{who(t.to,false)}</td><td><a {...link('settlements',t.game.id)}>{t.game.title}</a><span className="sub-line">{formatDate(gameDate(t.game))}</span></td><td className="num amt">{money(t.amount)}{t.method&&<small className="sub-line">cash</small>}</td><td><Pill kind="unpaid">Unpaid</Pill></td><td className="act"><span className="btn-row"><button className="btn small settle" onClick={()=>settle(t.game.id,t.from,t.to,t.amount,t.method)}>Settle</button><button className="dots" title={`Remind ${person(t.from)}`} aria-label={`Remind ${person(t.from)}`} onClick={()=>remind([t.from])}><BellRing size={15}/></button></span></td></tr>)}{doneRows.map(({e,g}:any)=><tr key={e.id} className="done"><td><span className="who">{who(e.from,false)}<ArrowRight className="arrow" size={15}/></span></td><td>{who(e.to,false)}</td><td><a {...link('settlements',g.id)}>{g.title}</a><span className="sub-line">{formatDate(gameDate(g))}</span></td><td className="num amt">{money(e.amount)}</td><td><Pill kind="paid"><Check size={12}/>Settled</Pill><small className="sub-line">{formatDate(e.confirmedAt||e.at)}</small></td><td className="act"><button className="link" onClick={()=>open('void',{entryId:e.id,sessionId:g.id})}>Undo</button></td></tr>)}{!rows.length&&!doneRows.length&&<tr><td className="empty" colSpan={6}>{statusFilter==='paid'?'Nothing settled yet.':'Nobody owes anything.'}</td></tr>}</tbody></table></div>
     {rows.length>0&&<p className="hint" style={{padding:'0 20px'}}>Players with an unpaid balance can’t buy in until it’s settled.</p>}
    </section>
@@ -288,20 +283,14 @@ export default function OpenStaxPoker(){
   </tbody></table></div></section></>;
  }
 
- function Players(){const profiles=playerProfiles(data),people=profiles.filter((p:any)=>p.name.toLowerCase().includes(query.toLowerCase())).sort((a:any,b:any)=>b.net-a.net||b.games-a.games),played=profiles.filter((p:any)=>p.games),top=[...played].sort((a:any,b:any)=>b.net-a.net)[0],regular=[...played].sort((a:any,b:any)=>b.games-a.games)[0];return <>
-  <div className="stats">
-   <StatCard icon={Users} label="Players" value={data.players.length} sub={`${played.length} with closed games`}/>
-   <StatCard icon={Trophy} label="Top Winner" value={top?top.name:'—'} sub={top?<span className="positive">{signedMoney(top.net)}</span>:'No closed games'}/>
-   <StatCard icon={Layers} label="Most Games" value={regular?regular.name:'—'} sub={regular?`${regular.games} games`:'No closed games'}/>
-   <StatCard icon={Coins} label="Total Bought In" value={money(profiles.reduce((n:number,p:any)=>n+p.bought,0))} sub="Closed games"/>
-  </div>
+ function Players(){const profiles=playerProfiles(data),people=profiles.filter((p:any)=>p.name.toLowerCase().includes(query.toLowerCase())).sort((a:any,b:any)=>b.net-a.net||b.games-a.games);return <>
   <section className="box"><div className="box-title"><h2>Players</h2><div className="tools"><label className="search-field"><Search size={16}/><input aria-label="Find a player" placeholder="Search players…" value={query} onChange={e=>setQuery(e.target.value)}/></label><button className="btn gold" onClick={()=>open('player')}><UserPlus size={16}/>Add player</button></div></div>
   <div className="scroll"><table><thead><tr><th>#</th><th>Player</th><th className="num">Games</th><th className="num">Net</th><th className="num">Won</th><th className="num">Best</th><th className="num">Worst</th><th className="num">Streak</th><th className="num">Bought In</th>{privateProfiles.ready&&<th>Email</th>}<th/></tr></thead><tbody>
    {people.length?people.map((p:any,i:number)=>{const c=privateProfiles.ready?privateProfiles.contacts[p.id]:null;return <tr key={p.id}><td>{i+1}</td><td><Who name={p.name} index={indexOf(p.id)}/></td><td className="num">{p.games}</td><td className={`num ${tone(p.net)}`}><b>{p.games?signedMoney(p.net):'—'}</b></td><td className="num">{p.games?`${p.wins}/${p.games}`:'—'}</td><td className="num">{p.games?signedMoney(p.best):'—'}</td><td className="num">{p.games?signedMoney(p.worst):'—'}</td><td className="num">{p.streak?`${Math.abs(p.streak)}${p.streak>0?'W':'L'}`:'—'}</td><td className="num amt">{money(p.bought)}</td>{privateProfiles.ready&&<td className="muted">{c?.email?<>{c.email}{c.enabled===false&&' (off)'}</>:'—'}</td>}<td className="act"><button className="btn small settle" onClick={()=>open('edit-player',{playerId:p.id,name:p.name})}>Edit</button></td></tr>;}):<tr><td className="empty" colSpan={11}>{query?'No match.':'No players yet.'}</td></tr>}
   </tbody></table></div></section></>;}
 
  function Settings(){return <><div className="columns" style={{marginBottom:18}}><section className="box"><div className="box-title"><h2>Sync</h2></div><table className="facts"><tbody><tr><th>Status</th><td className={online?'positive':'negative'}>{syncLabel}</td></tr><tr><th>Last cloud save</th><td>{updatedAt?new Date(updatedAt).toLocaleString():'—'}</td></tr><tr><th>Editing</th><td>{editor?'Unlocked':'View only'}</td></tr><tr><th>Background video</th><td><button className="link" onClick={()=>setMotion(v=>!v)}>{motion?'Playing · pause':'Paused · play'}</button></td></tr></tbody></table>{!online&&<div className="box-body"><button className="btn" onClick={()=>retry()}><RotateCcw size={15}/>Retry</button></div>}</section>
-  <section className="box"><div className="box-title"><h2>Backups</h2></div><div className="box-body btn-row"><button className="btn gold" onClick={exportJSON}><Download size={16}/>Download JSON backup</button><button className="btn" disabled={!s} onClick={exportCSV}><Download size={16}/>Export current game (CSV)</button><button className="btn" onClick={()=>fileRef.current?.click()}><Upload size={16}/>Import backup</button></div></section></div>
+  <section className="box"><div className="box-title"><h2>Backups</h2></div><div className="box-body btn-row"><button className="btn gold" onClick={exportJSON}><Download size={16}/>Download JSON backup</button><button className="btn" disabled={!s} onClick={exportCSV}><Download size={16}/>Export current game (CSV)</button><button className="btn" onClick={()=>fileRef.current?.click()}><Upload size={16}/>Import backup</button><button className="btn" onClick={()=>open('share')}><Share2 size={16}/>Share link</button></div></section></div>
   <EmailSettings editor={editor} unlock={()=>open('unlock')}/></>;}
 
  const modalTitles:Record<string,string>={email:'Resend results',session:'New game',player:'Add player','edit-player':'Edit player',buyin:'Record buy-in',cashout:'Record cash-out',transfer:'Record settlement',close:'Close game',notes:'Session notes',share:'Share',void:'Void entry',allocate:'Assign difference',unlock:'Unlock editing'};
@@ -313,11 +302,10 @@ export default function OpenStaxPoker(){
  <header className="topnav"><a className="brand" href="/" onClick={e=>{e.preventDefault();navigate('overview');}}><Spade size={34} fill="currentColor" strokeWidth={1}/><span>OpenStax <b>Poker</b></span></a>
   <nav className="mainnav" aria-label="Main navigation">{nav.map(n=><a key={n.id} href={n.href} className={n.active?'active':''} aria-current={n.active?'page':undefined} onClick={e=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();n.go();}}>{n.label}{!!n.count&&<span className="nav-count">{n.count}</span>}</a>)}</nav>
   <div className="top-right">
-   {liveGame&&<a className="live-chip" title={liveGame.title} {...link('game',liveGame.id)}><i className="dot"/><span><b>Live Game</b><small>{participants(liveGame).length} players · {duration(liveGame)}</small></span></a>}
+   {liveGame&&<a className="live-chip" title={liveGame.title} {...link('game',liveGame.id)}><i className="dot"/><span><b>Live Game</b><small><span>{participants(liveGame).length} players</span><span>{duration(liveGame)}</span></small></span></a>}
    {!allSaved&&<button className={`icon-btn ${online?'busy':''}`} title={syncLabel} aria-label={syncLabel} onClick={()=>navigate('settings')}>{online?<LoaderCircle size={18}/>:<CloudOff size={18}/>}</button>}
-   <button className={`icon-btn ${page==='music'?'on':''}`} title="Music" aria-label="Music" onClick={()=>navigate('music')}><Headphones size={18}/>{music.room?.isPlaying&&<i className="badge-dot" style={{background:'var(--green)'}}/>}</button>
+   <button className={`icon-btn ${page==='music'?'on':''}`} title="Music" aria-label="Music" onClick={()=>navigate('music')}><Headphones size={18}/>{music.room?.isPlaying&&<i className="badge-dot"/>}</button>
    <button className={`icon-btn ${page==='settings'?'on':''}`} title="Settings" aria-label="Settings" onClick={()=>navigate('settings')}><SettingsIcon size={18}/></button>
-   <button className="icon-btn" title="Share" aria-label="Share this page" onClick={()=>open('share')}><Share2 size={18}/></button>
    <button className={`icon-btn ${editor?'on':''}`} title={editor?'Editing unlocked · click to lock':'Unlock editing'} aria-label={editor?'Lock editing':'Unlock editing'} onClick={()=>editor?lock():open('unlock')}>{editor?<LockKeyholeOpen size={18}/>:<LockKeyhole size={18}/>}</button>
   </div>
  </header>
@@ -328,7 +316,7 @@ export default function OpenStaxPoker(){
   {content}
  </main></div>
  <input type="file" ref={fileRef} accept=".json,application/json" hidden onChange={e=>{const file=e.target.files?.[0];if(file)void importFile(file);e.target.value='';}}/>
- {notice&&<div className="toast" role="status">{notice.error?<AlertCircle size={17} style={{color:'var(--red)'}}/>:<CheckCircle2 size={17}/>}{notice.text}<button onClick={()=>setNotice(null)} aria-label="Dismiss notification"><X size={14}/></button></div>}
+ {notice&&<div className="toast" role="status">{notice.error?<AlertCircle size={17} style={{color:'var(--negative)'}}/>:<CheckCircle2 size={17}/>}{notice.text}<button onClick={()=>setNotice(null)} aria-label="Dismiss notification"><X size={14}/></button></div>}
  <dialog ref={dialogRef} onCancel={()=>setModal('')} onClick={e=>{if(e.target===e.currentTarget)setModal('');}} aria-labelledby="modal-title"><div className="dialog-title"><h2 id="modal-title">{modalTitles[modal]}</h2><button type="button" aria-label="Close dialog" onClick={()=>setModal('')}><X size={20}/></button></div><div className="dialog-body">
  {modal==='share'?<><div className="share-link"><input readOnly aria-label="Link" value={typeof window!=='undefined'?window.location.origin+window.location.pathname:''} onFocus={e=>e.currentTarget.select()}/><button className="btn gold" onClick={async()=>{try{await navigator.clipboard.writeText(window.location.origin+window.location.pathname);toast('Link copied.');setModal('');}catch{setFormError('Could not copy. Select the link and copy it.');}}}><Copy size={15}/>Copy</button></div><p className="hint" style={{marginTop:12}}>Anyone with the link can view. Editing needs the passcode.</p>{formError&&<p className="form-error">{formError}</p>}</>:<form key={modal+JSON.stringify(preset)+(modal==='edit-player'||modal==='email'?String(privateProfiles.ready):'')} onSubmit={submit}>
  {modal==='unlock'&&<label>Passcode<input name="passcode" type="password" autoComplete="current-password" required autoFocus/></label>}

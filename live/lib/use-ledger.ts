@@ -44,7 +44,7 @@ export function useLedger(){
  },[flush,refresh]);
  useEffect(()=>{
   alive.current=true;
-  try{const cached=JSON.parse(localStorage.getItem('pokerbank.live.cache')||'null');if(cached){base.current=cached.ledger;setUpdatedAt(cached.updatedAt);}refresh();}catch{setError('Local storage is unavailable. Keep this tab open until your changes are saved.');}
+  try{const cached=JSON.parse(localStorage.getItem('pokerbank.live.cache')||'null');if(cached){base.current=cached.ledger;revision.current=Number.isInteger(cached.revision)?cached.revision:-1;setUpdatedAt(cached.updatedAt);}refresh();}catch{setError('Local storage is unavailable. Keep this tab open until your changes are saved.');}
   const poll=async()=>{if(document.hidden||busy.current)return;try{const response=await apiFetch('/api/ledger',{cache:'no-store'});if(!response.ok)throw Error();const snapshot=await response.json();if(alive.current){accept(snapshot);setOnline(true);setReady(true);void flush();}}catch{if(alive.current){setOnline(false);setReady(true);}}};
   void poll();const stopSubscription=subscribeLedger((snapshot,fromCache)=>{if(alive.current){accept(snapshot);setOnline(!fromCache);setReady(true);if(!fromCache)void flush();}},()=>{if(alive.current){setOnline(false);setReady(true);}});const timer=setInterval(()=>{void flush();},2000);
   const onStorage=(event:StorageEvent)=>{if(event.key?.startsWith(PREFIX)){refresh();void flush();}};

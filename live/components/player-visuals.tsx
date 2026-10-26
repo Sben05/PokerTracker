@@ -1,5 +1,4 @@
-import {ChevronRight, Play, Circle, CircleAlert, Banknote, Coins, Spade} from 'lucide-react';
-import {money} from '../lib/engine.mjs';
+import {Play, Circle, CircleAlert, Banknote, Coins} from 'lucide-react';
 
 const tones = ['sage', 'clay', 'lilac', 'blue', 'sand', 'rose', 'teal'];
 const initials = (name: string) => name.split(' ').slice(0, 2).map(x => x[0]).join('').toUpperCase();
@@ -23,47 +22,26 @@ export function Pill({kind, children}: {kind: 'open' | 'closed' | 'unsettled' | 
  return <span className={`pill ${kind}`}>{icon}{children}</span>;
 }
 
-export function StatCard({icon: Icon, label, value, sub, tone, onClick, view}: {icon: any, label: string, value: React.ReactNode, sub?: React.ReactNode, tone?: 'up' | 'down', onClick?: () => void, view?: boolean}) {
- return <button type="button" className="stat" onClick={onClick} disabled={!onClick}>
-  <span className="stat-ring"><Icon size={30} strokeWidth={1.4}/></span>
-  <span className="stat-text"><span className="stat-label">{label}</span><strong className={`stat-value ${tone || ''}`}>{value}</strong>{sub && <span className="stat-sub">{sub}</span>}</span>
-  {onClick && (view ? <span className="stat-view">View <ChevronRight size={14}/></span> : <ChevronRight className="stat-go" size={20}/>)}
- </button>;
-}
+export type Seat = {id: string, name: string, index: number, text: string, tone?: 'up' | 'down' | '', out?: boolean};
 
-const CARDS = [['A', '♠'], ['K', '♦'], ['10', '♣'], ['7', '♥'], ['2', '♠']];
-const CHIP_COLORS = ['#e9e4d4', '#b3262b', '#1f6b43', '#1c1c1f', '#2f4f9a'];
-
-// A stack of chips standing on the felt; height grows with the amount.
-export function ChipStack({amount, seed = 0, className = ''}: {amount: number, seed?: number, className?: string}) {
- const count = Math.max(2, Math.min(10, Math.ceil(amount / 1200)));
- const stacks = amount > 5000 ? 2 : 1;
- return <span className={`chips ${className}`} aria-hidden="true">{Array.from({length: stacks}, (_, k) => {const n = Math.max(2, count - k * 3);return <span className="chip-stack" key={k} style={{height: `${n * 4 + 8}px`}}>{Array.from({length: n}, (_, i) => <i key={i} style={{'--c': CHIP_COLORS[(seed + k * 2 + (i >= n - 2 ? 1 : 0)) % CHIP_COLORS.length], bottom: `${i * 4}px`} as React.CSSProperties}/>)}</span>;})}</span>;
-}
-
-// Spots on the rail in front of the nine chairs of table.png, clockwise from the top center, as % of the image.
-const SEATS = [[43, 27], [58, 27], [72, 30], [84, 46], [72, 66], [50, 70], [28, 66], [16, 46], [28, 30]];
-const seatSpot = (i: number, n: number) => {
- if (n <= SEATS.length) return SEATS[Math.round(i * SEATS.length / n) % SEATS.length];
+// Spots on the rail in front of the eight chairs of table-scene.jpg, clockwise from the top, as % of the image.
+const SLOTS = [[50, 28.5], [73.5, 31], [84.5, 47], [74, 63.5], [50, 65.5], [26, 63.5], [15.5, 47], [26.5, 31]];
+const spot = (i: number, n: number) => {
+ if (n <= SLOTS.length) return SLOTS[Math.round(i * SLOTS.length / n) % SLOTS.length];
  const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
- return [50 + Math.cos(angle) * 33, 47 + Math.sin(angle) * 24];
+ return [50 + Math.cos(angle) * 35, 47 + Math.sin(angle) * 19];
 };
 
-// The photographed table, cropped to the rail; players, chips, cards and pot are placed on top of it.
-export function PokerTable({seats, title, subtitle, total, totalLabel = 'In play', onSeat}: {seats: {id: string, name: string, index: number, amount: number, out?: boolean}[], title: string, subtitle?: string, total: number, totalLabel?: string, onSeat?: (id: string) => void}) {
- return <div className="table-stage" role="img" aria-label={`${title}${subtitle ? `, ${subtitle}` : ''}`}>
-  <div className="table-photo">
-   <div className="table-clip"><div className="table-canvas"><img src="/table.png" alt="" draggable={false}/></div></div>
-   <div className="table-canvas">
-    {seats.length ? <>
-     <div className="felt-cards">{CARDS.map(([r, s], i) => <span key={r + s} className={`card ${s === '♦' || s === '♥' ? 'red' : ''}`} style={{'--r': `${(i - 2) * 1.5}deg`} as React.CSSProperties}><b>{r}</b><i>{s}</i></span>)}</div>
-     <span className="felt-pot"><ChipStack amount={total} seed={1}/><span><small>{totalLabel}</small><strong>{money(total)}</strong></span><ChipStack amount={total} seed={3}/></span>
-    </> : <div className="felt-empty"><b>{title}</b>{subtitle && <small>{subtitle}</small>}</div>}
-    {seats.map((p, i) => {const [x, y] = seatSpot(i, seats.length), cx = 50 + (x - 50) * .6, cy = 46 + (y - 46) * .72;return <span key={p.id}>
-     <span className="seat-chips" style={{left: `${cx}%`, top: `${cy}%`}}><ChipStack amount={p.amount} seed={i}/></span>
-     <button type="button" className={`seat ${p.out ? 'out' : ''}`} style={{left: `${x}%`, top: `${y}%`}} onClick={() => onSeat?.(p.id)}><Avatar name={p.name} index={p.index}/><span><b>{p.name}</b><em>{money(p.amount)}</em></span></button>
-    </span>;})}
-   </div>
+// The photographed room and table; each recorded player is placed on the rail in front of a chair.
+export function PokerTable({seats, label, onSeat, children}: {seats: Seat[], label: string, onSeat?: (id: string) => void, children?: React.ReactNode}) {
+ return <div className="scene-box" role="img" aria-label={label}>
+  <div className="scene">
+   <img src="/table-scene.jpg" alt="" draggable={false}/>
+   {seats.map((p, i) => {const [x, y] = spot(i, seats.length);
+    return <button type="button" key={p.id} className={`seat ${p.out ? 'out' : ''}`} style={{left: `${x}%`, top: `${y}%`}} onClick={() => onSeat?.(p.id)}>
+     <Avatar name={p.name} index={p.index}/><span><b>{p.name}</b><em className={p.tone || ''}>{p.text}</em></span>
+    </button>;})}
+   {children && <div className="scene-cta">{children}</div>}
   </div>
  </div>;
 }
