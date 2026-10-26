@@ -24,7 +24,7 @@ export function Intro({onDone}: {onDone: () => void}) {
   return () => { clearTimeout(leave); clearTimeout(done); window.removeEventListener('keydown', skip); };
  }, []);
  return <div className={`intro ${leaving ? 'leaving' : ''}`} role="presentation" onClick={() => { setLeaving(true); setTimeout(onDone, 650); }}>
-  <div className="intro-felt"/>
+  <video className="intro-video" src="/room-loop.mp4" poster="/room.jpg" autoPlay muted loop playsInline preload="auto"/>
   <div className="intro-light"/>
   <div className="intro-dust" aria-hidden="true">{DUST.map((d, i) => <i key={i} style={{'--x': d.x, '--s': `${d.s}px`, '--d': `${d.d}s`, '--delay': `${d.delay}s`, '--dx': `${d.dx}px`} as React.CSSProperties}/>)}</div>
   <div className="intro-hand" aria-hidden="true">
@@ -36,6 +36,7 @@ export function Intro({onDone}: {onDone: () => void}) {
     </div></div>
    </div>)}
   </div>
+  <div className="intro-mark"><h1>OpenStax Poker</h1></div>
   <div className="intro-beam"/>
   <span className="intro-skip">Click to enter</span>
   <span className="intro-bar"/>
