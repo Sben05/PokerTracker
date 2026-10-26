@@ -65,3 +65,7 @@ A dark card room. The Dashboard opens straight onto the table scene (`public/tab
 ## Cash deposits, personal bankers, and cash-aware payouts
 
 In a pay-at-end game, a buy-in can be marked as cash handed to another player ("held by"). That player owes the cash onward, so the depositor owes nothing extra if they lose. A player can also have a personal banker, who settles for them: only the banker appears in the payment plan. Per game, a player can be marked cash only (paid only in cash), able to make change, and given an amount of cash on hand. The plan then pays cash-only players first from whoever holds cash, moves cash in whole $5 bills unless someone can make change, and flags any cash-only payout it cannot cover. Without any of these set, the plan is the plain largest-debt-to-largest-credit match. Settled payments stay listed with a check mark and can be undone.
+
+## Player photos and large tables
+
+Edit a player on the Players page to add a profile photo. It is cropped square, shrunk to a small JPEG in the browser, and stored on the player record in the shared ledger, so it syncs and is included in JSON backups (photos over about 60 KB are rejected). Up to 7 players sit in front of the table's chairs; with more, the eighth seat becomes a "+N more" plate showing the rest's combined net result (or buy-ins while they are still playing), and clicking it lists everyone at the table.

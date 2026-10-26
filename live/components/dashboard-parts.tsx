@@ -27,7 +27,7 @@ export function LeaderCard({profiles, indexOf}: {profiles: any[], indexOf: (id: 
  const leader = [...profiles].filter(p => p.games).sort((a, b) => b.net - a.net)[0];
  return <section className="box leader-panel"><div className="box-title"><h2>Current Leader</h2></div>
   {leader ? <div className="leader">
-   <div className="leader-head"><Avatar name={leader.name} index={indexOf(leader.id)}/><div><h3><Trophy size={18} className="leader-icon"/>{leader.name}</h3><strong className={leader.net > 0 ? 'positive' : leader.net < 0 ? 'negative' : ''}>{signedMoney(leader.net)}</strong></div></div>
+   <div className="leader-head"><Avatar name={leader.name} index={indexOf(leader.id)} photo={leader.photo}/><div><h3><Trophy size={18} className="leader-icon"/>{leader.name}</h3><strong className={leader.net > 0 ? 'positive' : leader.net < 0 ? 'negative' : ''}>{signedMoney(leader.net)}</strong></div></div>
    <dl><div><dt>Games</dt><dd>{leader.games}</dd></div><div><dt>Won</dt><dd>{Math.round(leader.winRate * 100)}%</dd></div><div><dt>Best night</dt><dd>{signedMoney(leader.best)}</dd></div></dl>
   </div> : <p className="empty-note">The leader appears after the first closed game.</p>}
  </section>;

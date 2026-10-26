@@ -4,6 +4,8 @@ import {outstandingDebts} from './analytics.mjs';
 export class CommandError extends Error {}
 const fail=message=>{throw new CommandError(message)};
 const text=(v,max=150)=>typeof v==='string'?v.trim().slice(0,max):'';
+// Profile photos are small JPEG data URLs kept on the player record.
+const photo=v=>{if(v===undefined||v==='')return v;if(typeof v!=='string'||!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(v)||v.length>60000)fail('That photo is too large. Choose a smaller one.');return v;};
 const amount=(v,zero=false)=>{const n=cents(v);if(!zero&&!n)fail('Enter an amount greater than $0.');return n;};
 export function applyCommand(original,command){
  const data=structuredClone(original||makeStore());
@@ -23,12 +25,12 @@ export function applyCommand(original,command){
  case 'add-player':{
   const name=text(p.name,100);if(!name)fail('Enter a player name.');
   if(data.players.some(x=>x.name.toLowerCase()===name.toLowerCase()))fail('That player is already in your directory.');
-  data.players.push({...createPlayer(name),id,createdAt:at});break;
+  const pic=photo(p.photo);data.players.push({...createPlayer(name),id,createdAt:at,...(pic?{photo:pic}:{})});break;
  }
  case 'edit-player':{
   const row=player(p.playerId),name=text(p.name,100);if(!name)fail('Enter a player name.');
   if(data.players.some(x=>x.id!==row.id&&x.name.toLowerCase()===name.toLowerCase()))fail('That name is already taken.');
-  row.name=name;break;
+  row.name=name;const pic=photo(p.photo);if(pic==='')delete row.photo;else if(pic)row.photo=pic;break;
  }
  case 'buyin':{
   const s=session();open(s);const who=player(p.playerId);

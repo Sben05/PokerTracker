@@ -30,7 +30,7 @@ export function playerProfiles(data) {
     let running = 0;
     const series = results.map(r => (running += r.net));
     const nets = results.map(r => r.net), bought = results.reduce((sum, r) => sum + r.bought, 0), net = running;
-    return {id: player.id, name: player.name, games: results.length, net, bought, series, results,
+    return {id: player.id, name: player.name, photo: player.photo, games: results.length, net, bought, series, results,
       wins: nets.filter(n => n > 0).length, winRate: results.length ? nets.filter(n => n > 0).length / results.length : 0,
       best: results.length ? Math.max(...nets) : 0, worst: results.length ? Math.min(...nets) : 0,
       roi: bought ? net / bought : 0, streak: streakOf(nets)};
