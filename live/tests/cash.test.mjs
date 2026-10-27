@@ -79,3 +79,39 @@ test('the smallest bill is adjustable per game, down to exact cents',()=>{
  assert.deepEqual(build(),['1000','250s']);assert.deepEqual(build('0.01'),['1250']);assert.deepEqual(build('1'),['1200','50s']);assert.deepEqual(build('10'),['1000','250s']);
  let {d,sessionId}=table('A');assert.throws(()=>run(d,'set-cash-unit',{sessionId,unit:'0'}),/greater than \$0/);
 });
+
+test('upfront digital buy-ins credit the player and charge the recipient without creating cash',()=>{
+ for(const method of ['Venmo','Zelle','Other']){
+  let {d,sessionId,id}=table('Buyer','Holder','Winner');
+  d=run(d,'buyin',{sessionId,playerId:id.Buyer,amount:'20',paidUpfront:true,heldBy:id.Holder,method});
+  d=run(d,'cashout',{sessionId,playerId:id.Buyer,amount:'0'});
+  d=play(d,sessionId,id.Winner,'20','40');d=run(d,'close-session',{sessionId});
+  const s=d.sessions[0];assert.equal(s.entries[0].method,method);assert.equal(s.entries[0].status,'received');
+  assert.equal(balances(s).get(id.Buyer),0);assert.deepEqual(simplify(s),[{from:id.Holder,to:id.Winner,amount:2000}]);
+  d=run(d,'set-prefs',{sessionId,playerId:id.Winner,cashOnly:true});
+  assert.deepEqual(simplify(d.sessions[0]),[{from:id.Holder,to:id.Winner,amount:2000,method:'Cash',short:true}]);
+  const imported=run(makeStore(),'import',{ledger:d});assert.equal(imported.sessions[0].entries[0].method,method);
+ }
+});
+test('editing a deposit between digital and cash changes cash availability and preserves its recipient',()=>{
+ let {d,sessionId,id}=table('Buyer','Holder','Winner');
+ d=run(d,'buyin',{sessionId,playerId:id.Buyer,amount:'20',paidUpfront:true,heldBy:id.Holder,method:'Venmo'});
+ d=run(d,'cashout',{sessionId,playerId:id.Buyer,amount:'0'});d=play(d,sessionId,id.Winner,'20','40');d=run(d,'close-session',{sessionId});
+ d=run(d,'set-prefs',{sessionId,playerId:id.Winner,cashOnly:true});
+ const entryId=d.sessions[0].entries[0].id,payload={sessionId,entryId,playerId:id.Buyer,amount:'20',heldBy:id.Holder};
+ d=run(d,'edit-entry',{...payload,method:'Cash'});
+ assert.deepEqual(simplify(d.sessions[0]),[{from:id.Holder,to:id.Winner,amount:2000,method:'Cash'}]);
+ d=run(d,'edit-entry',{...payload,method:'Zelle'});
+ assert.deepEqual(simplify(d.sessions[0]),[{from:id.Holder,to:id.Winner,amount:2000,method:'Cash',short:true}]);
+ assert.equal(d.sessions[0].entries[0].heldBy,id.Holder);
+ assert.throws(()=>run(d,'edit-entry',{...payload,method:'invalid'}),/payment method/);
+});
+test('upfront payments validate methods, recipients and optional banker assignment',()=>{
+ let {d,sessionId,id}=table('Buyer','Holder');
+ const payload={sessionId,playerId:id.Buyer,amount:'20',paidUpfront:true,heldBy:id.Holder,method:'Venmo'};
+ assert.throws(()=>run(d,'buyin',{...payload,method:'invalid'}),/payment method/);
+ assert.throws(()=>run(d,'buyin',{...payload,heldBy:id.Buyer}),/different player/);
+ d=run(d,'buyin',{...payload,makeBanker:true});assert.equal(d.sessions[0].bankers[id.Buyer],id.Holder);
+ const invalid=structuredClone(d);invalid.sessions[0].entries[0].method='invalid';assert.throws(()=>validateBackup(invalid),/upfront payment/);
+ assert.equal(validateBackup(d).sessions[0].entries[0].method,'Venmo');
+});

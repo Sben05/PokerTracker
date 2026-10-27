@@ -34,7 +34,7 @@ export async function firebaseFetch(path:string,options:RequestInit={}){
   if(method==='GET'){const value=await getDocFromServer(ledgerRef);return result(snapshot(value.data()));}
   if(auth.currentUser?.uid!==config.editorUid)return result({error:'Unlock editing with the table passcode.'},401);
   const command=JSON.parse(String(options.body));
-  if(typeof command.id!=='string'||!command.id||command.id.length>100)return result({error:'Missing action ID.'},400);
+  if(typeof command.id!=='string'||! /^[A-Za-z0-9_:.-]{1,100}$/.test(command.id))return result({error:'Missing action ID.'},400);
   const operationRef=doc(database,'operations',command.id);
   try{
    const saved=await runTransaction(database,async transaction=>{

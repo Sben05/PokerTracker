@@ -17,8 +17,10 @@ export const createPlayer = (name,methods=METHODS.slice(0,4)) => ({id:uid(),name
 export const makeSession = (title,{mode='centralized',bankerId=null}={}) => ({id:uid(),title:title.trim(),createdAt:new Date().toISOString(),mode,bankerId:mode==='centralized'?bankerId:null,status:'open',entries:[],adjustments:[],bankVariance:0,varianceNote:'',notes:'',endedAt:null});
 export const buyins = s => s.entries.filter(e=>e.type==='buyin'&&!e.voidedAt);
 export const cashouts = s => s.entries.filter(e=>e.type==='cashout'&&!e.voidedAt);
+export const tips = s => s.entries.filter(e=>e.type==='tip'&&!e.voidedAt);
+export const chipPlayers = s => [...new Set(s.entries.filter(e=>!e.voidedAt&&['buyin','cashout'].includes(e.type)).map(e=>e.playerId))];
 export const transfers = s => s.entries.filter(e=>e.type==='transfer'&&!e.voidedAt);
-export const participants = s => [...new Set(s.entries.filter(e=>!e.voidedAt).flatMap(e=>e.playerId?[e.playerId,...(e.heldBy?[e.heldBy]:[])]:(e.type==='transfer'?[e.from,e.to].filter(x=>x!==BANK_ID):[])))];
+export const participants = s => [...new Set(s.entries.filter(e=>!e.voidedAt).flatMap(e=>e.playerId?[e.playerId,...(e.heldBy?[e.heldBy]:[])]:(['transfer','tip'].includes(e.type)?[e.from,e.to].filter(x=>x!==BANK_ID):[])))];
 export function stats(s) {
   const ins=buyins(s),outs=cashouts(s),ts=transfers(s);
   const totalIn=ins.reduce((a,e)=>a+e.amount,0), totalOut=outs.reduce((a,e)=>a+e.amount,0);
@@ -29,17 +31,23 @@ export function stats(s) {
   const received=ins.filter(e=>e.status==='received').reduce((a,e)=>a+e.amount,0);
   const outgoing=ts.filter(e=>e.status==='paid'&&e.from===BANK_ID).reduce((a,e)=>a+e.amount,0);
   const incoming=ts.filter(e=>e.status==='paid'&&e.to===BANK_ID).reduce((a,e)=>a+e.amount,0);
-  return {totalIn,totalOut,variance,unresolved,adjusted,received,outstandingIn,bankHoldings:received+incoming-outgoing,paidOut:outgoing,transactions:s.entries.length};
+  const bankReceived=ins.filter(e=>e.status==='received'&&!e.heldBy).reduce((n,e)=>n+e.amount,0);
+  const incomplete=chipPlayers(s).filter(id=>playerStats(s,id).open).length;
+  return {totalIn,totalOut,variance,unresolved,incomplete,adjusted,received,outstandingIn,bankHoldings:bankReceived+incoming-outgoing,paidOut:outgoing,transactions:s.entries.length,totalTips:tips(s).reduce((n,e)=>n+e.amount,0)};
 }
+export const gameReady = s => s.status==='closed'&&stats(s).unresolved===0&&stats(s).incomplete===0;
 export function playerStats(s,id) {
   const ins=buyins(s).filter(e=>e.playerId===id), outs=cashouts(s).filter(e=>e.playerId===id);
   const bought=ins.reduce((a,e)=>a+e.amount,0), cashed=outs.reduce((a,e)=>a+e.amount,0);
   const adjustment=s.adjustments.filter(e=>e.playerId===id&&!e.voidedAt).reduce((a,e)=>a+e.amount,0);
   const paidIn=ins.filter(e=>e.status==='received').reduce((a,e)=>a+e.amount,0);
-  const paidOut=transfers(s).filter(e=>e.status==='paid'&&e.to===id).reduce((a,e)=>a+e.amount,0);
-  const sentDirect=transfers(s).filter(e=>e.status==='paid'&&e.from===id).reduce((a,e)=>a+e.amount,0);
+  const payments=[...transfers(s),...tips(s)];
+  const tipsGiven=tips(s).filter(e=>e.from===id).reduce((n,e)=>n+e.amount,0),tipsReceived=tips(s).filter(e=>e.to===id).reduce((n,e)=>n+e.amount,0);
+  const heldFunds=buyins(s).filter(e=>e.heldBy===id&&e.status==='received').reduce((n,e)=>n+e.amount,0);
+  const paidOut=payments.filter(e=>e.status==='paid'&&e.to===id).reduce((a,e)=>a+e.amount,0);
+  const sentDirect=payments.filter(e=>e.status==='paid'&&e.from===id).reduce((a,e)=>a+e.amount,0);
   const open=ins.length>0 && !outs.length;
-  return {bought,cashed,adjustment,net:cashed+adjustment-bought,paidIn,paidOut,sentDirect,open,unpaidBuyins:bought-paidIn};
+  return {bought,cashed,adjustment,gameNet:cashed+adjustment-bought,tipsGiven,tipsReceived,tipNet:tipsReceived-tipsGiven,net:cashed+adjustment-bought+tipsReceived-tipsGiven,paidIn,paidOut,sentDirect,heldFunds,open,unpaidBuyins:bought-paidIn};
 }
 /** Net amount each party should still RECEIVE (+) or PAY (-). Bank is a clearing participant.
  * confirmed/paid transfers are already applied; optional pending transfers reserve a planned payment.
@@ -51,6 +59,7 @@ export function balances(s,{includePending=false}={}) {
     if(e.voidedAt)continue;
     if(e.type==='buyin') {add(e.playerId,-e.amount);add(BANK_ID,e.amount);if(e.status==='received'){add(e.playerId,e.amount);add(e.heldBy||BANK_ID,-e.amount);}}
     if(e.type==='cashout'){add(e.playerId,e.amount);add(BANK_ID,-e.amount);}
+    if(e.type==='tip'){add(e.from,-e.amount);add(e.to,e.amount);if(e.status==='paid'){add(e.from,e.amount);add(e.to,-e.amount);}}
     if(e.type==='transfer'&&(e.status==='paid'||(includePending&&e.status==='pending'))){add(e.from,e.amount);add(e.to,-e.amount);}
   }
   for(const a of s.adjustments){if(a.voidedAt)continue;add(a.playerId,a.amount);add(BANK_ID,-a.amount);}
@@ -70,9 +79,9 @@ export function cashOnHand(s,id){
   let n=cashPrefs(s,id).cash;
   for(const e of s.entries){
     if(e.voidedAt)continue;
-    if(e.type==='buyin'&&e.heldBy===id&&e.status==='received')n+=e.amount;
-    if(e.type==='transfer'&&e.method==='Cash'){
-      if(e.from===id&&(e.status==='paid'||e.status==='pending'))n-=e.amount;
+    if(e.type==='buyin'&&(e.heldBy||BANK_ID)===id&&e.status==='received'&&e.method==='Cash')n+=e.amount;
+    if(['transfer','tip'].includes(e.type)&&e.method==='Cash'){
+      if(e.from===id&&(e.status==='paid'||(e.type==='transfer'&&e.status==='pending')))n-=e.amount;
       if(e.to===id&&e.status==='paid')n+=e.amount;
     }
   }
@@ -94,7 +103,7 @@ export function planSteps(s,{includePending=true}={}){
   const b=payBalances(s,{includePending});
   const advanced=isAdvanced(s);
   const group=id=>[id,...dependentsOf(s,id)];
-  const make=([id,n],sign)=>({id,remaining:sign*n,...(advanced&&id!==BANK_ID?{cash:group(id).reduce((t,m)=>t+cashOnHand(s,m),0),cashOnly:cashPrefs(s,id).cashOnly,canBreak:group(id).some(m=>cashPrefs(s,m).canBreak)}:{cash:0,cashOnly:false,canBreak:false})});
+  const make=([id,n],sign)=>({id,remaining:sign*n,...(advanced?{cash:group(id).reduce((t,m)=>t+cashOnHand(s,m),0),cashOnly:group(id).some(m=>cashPrefs(s,m).cashOnly),canBreak:group(id).some(m=>cashPrefs(s,m).canBreak)}:{cash:0,cashOnly:false,canBreak:false})});
   const debtors=[...b].filter(([,n])=>n<0).map(e=>make(e,-1)).sort((x,y)=>y.remaining-x.remaining);
   const creditors=[...b].filter(([,n])=>n>0).map(e=>make(e,1)).sort((x,y)=>y.remaining-x.remaining);
   const steps=[];
@@ -156,7 +165,7 @@ export function validateImported(v) {
   if(!v||v.version!==1||!Array.isArray(v.players)||!Array.isArray(v.sessions)) throw Error('Invalid OpenStax Poker backup (expected version 1).');
   if(v.players.length>5000||v.sessions.length>10000) throw Error('Backup too large.');
   for(const p of v.players){if(typeof p.id!=='string'||typeof p.name!=='string'||p.name.length>120||!Array.isArray(p.methods)) throw Error('Invalid player in backup.');if(p.photo!==undefined&&(typeof p.photo!=='string'||!p.photo.startsWith('data:image/jpeg;base64,')||p.photo.length>60000)) throw Error('Invalid player photo in backup.');}
-  for(const s of v.sessions){if(!Array.isArray(s.entries)||!Array.isArray(s.adjustments)||s.entries.length>100000) throw Error('Invalid session in backup.');if(s.mode!==undefined&&!['centralized','decentralized'].includes(s.mode))throw Error('Invalid banking mode.');if(s.bankerId!==undefined&&s.bankerId!==null&&typeof s.bankerId!=='string')throw Error('Invalid banker.');if(s.bankers!==undefined&&(typeof s.bankers!=='object'||s.bankers===null||Object.values(s.bankers).some(x=>typeof x!=='string')))throw Error('Invalid personal bankers.');if(s.cashUnit!==undefined&&(!Number.isSafeInteger(s.cashUnit)||s.cashUnit<1||s.cashUnit>1000000))throw Error('Invalid cash unit.');if(s.prefs!==undefined&&(typeof s.prefs!=='object'||s.prefs===null||Object.values(s.prefs).some(x=>!x||!Number.isSafeInteger(x.cash||0)||x.cash<0)))throw Error('Invalid cash preferences.');for(const a of s.adjustments){if(!Number.isSafeInteger(a.amount)||Math.abs(a.amount)>1000000000||typeof a.playerId!=='string')throw Error('Invalid discrepancy allocation.');}for(const e of s.entries){if(!['buyin','cashout','transfer'].includes(e.type)||!Number.isSafeInteger(e.amount)||e.amount<0||e.amount>1000000000)throw Error('Invalid money entry.');}}
+  for(const s of v.sessions){if(!Array.isArray(s.entries)||!Array.isArray(s.adjustments)||s.entries.length>100000) throw Error('Invalid session in backup.');if(s.mode!==undefined&&!['centralized','decentralized'].includes(s.mode))throw Error('Invalid banking mode.');if(s.bankerId!==undefined&&s.bankerId!==null&&typeof s.bankerId!=='string')throw Error('Invalid banker.');if(s.bankers!==undefined&&(typeof s.bankers!=='object'||s.bankers===null||Object.values(s.bankers).some(x=>typeof x!=='string')))throw Error('Invalid personal bankers.');if(s.cashUnit!==undefined&&(!Number.isSafeInteger(s.cashUnit)||s.cashUnit<1||s.cashUnit>1000000))throw Error('Invalid cash unit.');if(s.prefs!==undefined&&(typeof s.prefs!=='object'||s.prefs===null||Object.values(s.prefs).some(x=>!x||!Number.isSafeInteger(x.cash??0)||(x.cash??0)<0||(x.cash??0)>1000000000)))throw Error('Invalid cash preferences.');for(const a of s.adjustments){if(!Number.isSafeInteger(a.amount)||Math.abs(a.amount)>1000000000||typeof a.playerId!=='string')throw Error('Invalid discrepancy allocation.');}for(const e of s.entries){if(!['buyin','cashout','transfer','tip'].includes(e.type)||!Number.isSafeInteger(e.amount)||e.amount<0||(e.type!=='cashout'&&e.amount===0)||e.amount>1000000000)throw Error('Invalid money entry.');}}
   return v;
 }
 export const createDemo = () => {

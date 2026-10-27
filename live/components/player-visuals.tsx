@@ -15,7 +15,7 @@ export function Who({name, index, small = false, photo}: {name: string, index: n
 
 export function Method({method}: {method?: string}) {
  if (!method) return <span className="muted">—</span>;
- const badge = method === 'Venmo' ? <i className="method-badge venmo">V</i> : method === 'Zelle' ? <i className="method-badge zelle">Z</i> : method === 'Cash' ? <i className="method-badge cash"><Banknote size={13}/></i> : method === 'Coins' ? <i className="method-badge coins"><Coins size={13}/></i> : <i className="method-badge other">·</i>;
+ const badge = method === 'Venmo' ? <i aria-hidden="true" className="method-badge venmo">V</i> : method === 'Zelle' ? <i aria-hidden="true" className="method-badge zelle">Z</i> : method === 'Cash' ? <i aria-hidden="true" className="method-badge cash"><Banknote size={13}/></i> : method === 'Coins' ? <i aria-hidden="true" className="method-badge coins"><Coins size={13}/></i> : <i aria-hidden="true" className="method-badge other">·</i>;
  return <span className="method">{badge}{method}</span>;
 }
 

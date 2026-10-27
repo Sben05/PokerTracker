@@ -1,6 +1,7 @@
 import {collection,doc,getDoc,getDocs,limit,query,runTransaction,setDoc,updateDoc,where} from 'firebase/firestore';
 import {auth,database,EDITOR_UID} from './firebase-network';
 import {emailHtml} from './email-html.mjs';
+import {notificationCurrent} from './notifications.mjs';
 import {EMAILJS,SENDER_NAME} from './emailjs-config.mjs';
 
 export {SENDER_NAME};
@@ -37,7 +38,7 @@ async function drain(){
   const pending=await getDocs(query(collection(database,'emailNotifications'),where('status','==','pending'),limit(20)));
   if(pending.empty)return;
   for(const item of pending.docs.sort((a,b)=>String(a.data().createdAt).localeCompare(String(b.data().createdAt)))){
-   const claimed=await runTransaction(database,async t=>{const fresh=await t.get(item.ref);if(fresh.data()?.status!=='pending')return null;t.update(item.ref,{status:'sending',attemptedAt:new Date().toISOString()});return fresh.data();}).catch(()=>null);
+   const claimed=await runTransaction(database,async t=>{const fresh=await t.get(item.ref);if(fresh.data()?.status!=='pending')return null;const message=fresh.data()!;const [contact,ledger]=await Promise.all([t.get(doc(database,'playerContacts',message.playerId)),t.get(doc(database,'ledgers','house'))]);if(!notificationCurrent(ledger.data()?.ledger||{players:[],sessions:[]},contact.data(),message)){t.update(item.ref,{status:'canceled',error:'Recipient preferences or game balances changed. Generate a new update if needed.',finishedAt:new Date().toISOString()});return null;}t.update(item.ref,{status:'sending',attemptedAt:new Date().toISOString()});return message;}).catch(()=>null);
    if(!claimed)continue;
    try{
     await sendEmail(config,claimed.to,claimed.subject,claimed.body);
@@ -55,6 +56,6 @@ export async function saveEmailJsConfig(config:EmailJsConfig){
  await setDoc(settingsRef(),{...config,updatedAt:new Date().toISOString()});
 }
 export async function retryEmail(id:string){
- await updateDoc(doc(database,'emailNotifications',id),{status:'pending',error:''});
+ await runTransaction(database,async t=>{const ref=doc(database,'emailNotifications',id),message=await t.get(ref);if(message.data()?.status!=='failed')throw new Error('Only failed messages can be retried.');t.update(ref,{status:'pending',error:''});});
  return deliverQueuedEmails();
 }

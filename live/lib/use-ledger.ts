@@ -13,9 +13,9 @@ function project(base:Ledger,pending:Command[]){return pending.reduce((data,comm
 },base);}
 export function useLedger(){
  const [data,setData]=useState<Ledger>(makeStore()),[ready,setReady]=useState(false),[online,setOnline]=useState(true),[pending,setPending]=useState(0),[saving,setSaving]=useState(false),[updatedAt,setUpdatedAt]=useState<string|null>(null),[error,setError]=useState('');
- const base=useRef<Ledger>(makeStore()),revision=useRef(-1),busy=useRef(false),alive=useRef(true),view=useRef<Ledger>(makeStore());
+ const base=useRef<Ledger>(makeStore()),revision=useRef(-1),busy=useRef(false),lastQueued=useRef(0),alive=useRef(true),view=useRef<Ledger>(makeStore());
  const refresh=useCallback(()=>{const q=queued();view.current=project(base.current,q);setData(view.current);setPending(q.length);},[]);
- const accept=useCallback((snapshot:any)=>{if(snapshot.revision<revision.current)return;revision.current=snapshot.revision;base.current=snapshot.ledger;setUpdatedAt(snapshot.updatedAt);localStorage.setItem('pokerbank.live.cache',JSON.stringify(snapshot));refresh();},[refresh]);
+ const accept=useCallback((snapshot:any)=>{if(snapshot.revision<revision.current)return;revision.current=snapshot.revision;base.current=snapshot.ledger;setUpdatedAt(snapshot.updatedAt);try{localStorage.setItem('pokerbank.live.cache',JSON.stringify(snapshot));}catch{setError('Device storage is full. Cloud data is loaded, but the offline cache could not be updated.');}refresh();},[refresh]);
  const flush=useCallback(async()=>{
   if(busy.current)return;busy.current=true;
   try{
@@ -37,7 +37,8 @@ export function useLedger(){
   }catch{setOnline(false);refresh();}finally{busy.current=false;setSaving(false);}
  },[accept,refresh]);
  const dispatch=useCallback((type:string,payload:any)=>{
-  const command={id:uid(),type,payload,queuedAt:Date.now()};
+  lastQueued.current=Math.max(Date.now(),lastQueued.current+1,...queued().map(c=>(c as any).queuedAt||0))+1;
+  const command={id:uid(),type,payload,queuedAt:lastQueued.current};
   // Validate before closing a form, then persist the action before sending it.
   applyCommand(view.current,command);
   localStorage.setItem(PREFIX+command.id,JSON.stringify(command));refresh();void flush();return command.id;

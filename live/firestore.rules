@@ -24,7 +24,7 @@ service cloud.firestore {
    allow read: if editor();
    allow create: if editor() && request.resource.data.keys().hasOnly(['playerId','subject','body','gameId','to','operationId','status','createdAt']) && request.resource.data.status == 'pending' && request.resource.data.to is string && request.resource.data.to.size() <= 254 && request.resource.data.subject is string && request.resource.data.subject.size() <= 500 && request.resource.data.body is string && request.resource.data.body.size() <= 50000 && request.resource.data.playerId is string && request.resource.data.operationId is string && request.resource.data.createdAt is string && getAfter(/databases/$(database)/documents/ledgers/house).data.lastCommandId == request.resource.data.operationId;
    // The editor's browser delivers mail and may only change delivery status, never content or recipient.
-   allow update: if editor() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','error','attemptedAt','finishedAt','provider']) && request.resource.data.status in ['pending','sending','sent','failed'];
+   allow update: if editor() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','error','attemptedAt','finishedAt','provider']) && request.resource.data.status in ['pending','sending','sent','failed','canceled'];
    allow delete: if false;
   }
   match /notificationSettings/emailjs {

@@ -1,17 +1,17 @@
-import {BANK_ID, balances, payBalances, participants, playerStats, stats, simplify, planSteps} from './engine.mjs';
+import {BANK_ID, balances, payBalances, participants, playerStats, stats, simplify, planSteps, gameReady, headOf} from './engine.mjs';
 // Keep obligations per game: a win in another game does not confirm a payment here.
 export function outstandingPayments(s) {
   if (s.status !== 'closed' && s.mode === 'decentralized') return [];
-  if (s.status === 'closed' && stats(s).unresolved !== 0) return [];
+  if (s.status === 'closed' && !gameReady(s)) return [];
   return [...payBalances(s)].filter(([, amount]) => amount < 0).map(([id, amount]) => {
-    const pending = s.entries.filter(e => !e.voidedAt && e.type === 'transfer' && e.status === 'pending' && e.from === id).reduce((sum, e) => sum + e.amount, 0);
+    const pending = s.entries.filter(e => !e.voidedAt && e.type === 'transfer' && e.status === 'pending' && headOf(s,e.from) === id).reduce((sum, e) => sum + e.amount, 0);
     return {id, amount: -amount, pending};
   });
 }
 export function ledgerAnalytics(data) {
   const games = data.sessions;
   const completed = games.filter(s => s.status === 'closed');
-  const needsReview = completed.filter(s => stats(s).unresolved !== 0);
+  const needsReview = completed.filter(s => !gameReady(s));
   const unpaid = games.flatMap(game => outstandingPayments(game).map(row => ({...row, game})));
   const leaderboard = data.players.map(player => {
     const played = completed.filter(s => participants(s).includes(player.id));
@@ -53,10 +53,10 @@ export function balanceCalculation(s, id) {
 export {BANK_ID};
 
 // Unpaid transfers from finished games, keyed by the player who must pay.
-export function outstandingDebts(ledger) {
+export function outstandingDebts(ledger,{includePending=false}={}) {
   const owed = new Map();
-  for (const game of ledger.sessions.filter(s => s.status === 'closed' && stats(s).unresolved === 0)) {
-    for (const t of simplify(game)) {
+  for (const game of ledger.sessions.filter(gameReady)) {
+    for (const t of simplify(game,{includePending})) {
       if (t.from === BANK_ID) continue;
       if (!owed.has(t.from)) owed.set(t.from, []);
       owed.get(t.from).push({...t, game});
